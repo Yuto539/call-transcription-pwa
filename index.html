@@ -1,0 +1,2576 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>電話内容文字起こし・要約アプリ</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            min-height: 100vh;
+            background: white;
+            box-shadow: 0 0 30px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            overflow-x: auto;
+        }
+
+        .nav-tab {
+            flex: 1;
+            min-width: 120px;
+            padding: 15px 10px;
+            text-align: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #64748b;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .nav-tab.active {
+            background: white;
+            color: #4f46e5;
+            border-bottom: 3px solid #4f46e5;
+        }
+
+        .nav-tab:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+            min-height: 500px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* メイン録音画面 */
+        .recording-area {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .record-button {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.3);
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .record-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(239, 68, 68, 0.4);
+        }
+
+        .record-button.recording {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            animation: pulse-record 2s infinite;
+        }
+
+        .record-button.recording::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+            animation: ripple 1.5s infinite;
+        }
+
+        @keyframes pulse-record {
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+
+        @keyframes ripple {
+            0% { transform: scale(0) rotate(0deg); opacity: 1; }
+            100% { transform: scale(1) rotate(180deg); opacity: 0; }
+        }
+
+        .recording-status {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .recording-time {
+            font-size: 2rem;
+            color: #ef4444;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+
+        .transcription-area {
+            margin: 30px 0;
+        }
+
+        .transcription-text {
+            width: 100%;
+            min-height: 300px;
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            line-height: 1.6;
+            resize: vertical;
+            font-family: inherit;
+            background: #fafafa;
+            transition: border-color 0.3s ease;
+        }
+
+        .transcription-text:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+        }
+
+        /* 用語辞書画面 */
+        .dictionary-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .dictionary-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .dictionary-item-info {
+            flex: 1;
+        }
+
+        .dictionary-item-terms {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+
+        .dictionary-item-wrong {
+            color: #dc2626;
+            font-weight: 600;
+        }
+
+        .dictionary-item-correct {
+            color: #059669;
+            font-weight: 600;
+        }
+
+        .dictionary-item-meta {
+            font-size: 0.8rem;
+            color: #64748b;
+            display: flex;
+            gap: 15px;
+        }
+
+        .dictionary-item-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .category-badge {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .category-general { background: #f3f4f6; color: #374151; }
+        .category-business { background: #dbeafe; color: #1d4ed8; }
+        .category-technical { background: #dcfce7; color: #166534; }
+        .category-medical { background: #fef3c7; color: #a16207; }
+        .category-legal { background: #fce7f3; color: #be185d; }
+
+        /* Claude連携画面 - 要約テンプレート機能 */
+        .claude-section {
+            background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .template-selector {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #d1d5db;
+        }
+
+        .template-selector h4 {
+            color: #374151;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .template-btn {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .template-btn:hover {
+            border-color: #4f46e5;
+            background: #eef2ff;
+        }
+
+        .template-btn.active {
+            border-color: #4f46e5;
+            background: #eef2ff;
+            color: #4f46e5;
+        }
+
+        .template-btn h5 {
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+
+        .template-btn p {
+            font-size: 0.8rem;
+            color: #64748b;
+            line-height: 1.3;
+        }
+
+        .custom-template-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .custom-template-input {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .claude-prompt {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #d1d5db;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            color: #374151;
+        }
+
+        .summary-area {
+            margin-top: 20px;
+        }
+
+        .summary-text {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 2px solid #bbf7d0;
+            border-radius: 8px;
+            background: #f0fdf4;
+            font-size: 1rem;
+            line-height: 1.6;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        /* 履歴画面 */
+        .history-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+
+        .search-box {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .history-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .history-item:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .history-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 5px;
+        }
+
+        .history-meta {
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+
+        .history-preview {
+            color: #475569;
+            line-height: 1.5;
+            margin: 10px 0;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+        }
+
+        .history-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* ステータス・通知 */
+        .status {
+            margin: 15px 0;
+            padding: 12px 15px;
+            border-radius: 8px;
+            display: none;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .status.error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .status.info {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #dbeafe;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .container {
+                margin: 0;
+                min-height: 100vh;
+            }
+            
+            .header {
+                padding: 15px 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .tab-content {
+                padding: 20px;
+            }
+            
+            .record-button {
+                width: 150px;
+                height: 150px;
+                font-size: 1rem;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .btn {
+                justify-content: center;
+            }
+            
+            .history-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .history-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .history-actions {
+                margin-top: 10px;
+            }
+
+            .template-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .dictionary-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .dictionary-item-actions {
+                margin-top: 10px;
+            }
+        }
+
+        /* 隠し要素 */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📞 電話内容文字起こし・要約アプリ</h1>
+            <p>リアルタイム録音で自動文字起こし＆Claude連携要約（用語辞書機能付き）</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('main')">🎤 録音・文字起こし</button>
+            <button class="nav-tab" onclick="switchTab('history')">📋 履歴</button>
+            <button class="nav-tab" onclick="switchTab('dictionary')">📚 用語辞書</button>
+            <button class="nav-tab" onclick="switchTab('claude')">🤖 Claude連携</button>
+            <button class="nav-tab" onclick="switchTab('help')">❓ ヘルプ</button>
+        </div>
+
+        <!-- メイン録音画面 -->
+        <div id="main-tab" class="tab-content active">
+            <div class="recording-area">
+                <button id="recordButton" class="record-button" onclick="toggleRecording()">
+                    🎤<br>録音開始
+                </button>
+                <div class="recording-status" id="recordingStatus">録音準備完了</div>
+                <div class="recording-time" id="recordingTime">00:00</div>
+            </div>
+
+            <div class="status" id="status"></div>
+
+            <div class="transcription-area">
+                <textarea 
+                    id="transcriptionText" 
+                    class="transcription-text" 
+                    placeholder="録音ボタンを押すと、リアルタイムで文字起こしが表示されます...">
+                </textarea>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-success" onclick="saveTranscription()">💾 履歴に保存</button>
+                <button class="btn btn-primary" onclick="prepareClaudePrompt()">🤖 Claude連携</button>
+                <button class="btn btn-secondary" onclick="applyDictionaryToText()">📚 辞書適用</button>
+                <button class="btn btn-secondary" onclick="exportTranscription()">📄 テキスト出力</button>
+                <button class="btn btn-secondary" onclick="clearTranscription()">🗑️ クリア</button>
+            </div>
+        </div>
+
+        <!-- 履歴画面 -->
+        <div id="history-tab" class="tab-content">
+            <div class="history-controls">
+                <input type="text" id="searchBox" class="search-box" placeholder="🔍 履歴を検索..." oninput="filterHistory()">
+                <button class="btn btn-secondary btn-small" onclick="clearAllHistory()">🗑️ 履歴削除</button>
+            </div>
+            
+            <div id="historyList" class="history-list">
+                <div style="text-align: center; color: #64748b; padding: 40px;">
+                    まだ履歴がありません。<br>
+                    録音・文字起こしを行って保存してください。
+                </div>
+            </div>
+        </div>
+
+        <!-- 用語辞書画面 -->
+        <div id="dictionary-tab" class="tab-content">
+            <!-- 自動変換設定 -->
+            <div style="background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px; color: #0c4a6e;">🔄 自動変換設定</h3>
+                <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px; font-weight: 600;">
+                        <input type="checkbox" id="autoConvertToggle" checked style="transform: scale(1.2);">
+                        🔄 リアルタイム自動変換
+                    </label>
+                    <button class="btn btn-secondary btn-small" onclick="applyDictionaryToText()">📚 辞書適用</button>
+                    <button class="btn btn-secondary btn-small" onclick="loadDefaultDictionary()">📦 デフォルト辞書</button>
+                </div>
+                <p style="color: #0369a1; font-size: 0.9rem;">音声認識中に用語を自動変換します。手動で適用する場合は「辞書適用」ボタンを使用してください。</p>
+            </div>
+
+            <!-- 用語追加フォーム -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px;">➕ 新しい用語を追加</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; margin-bottom: 15px;">
+                    <input type="text" id="wrongTerm" placeholder="誤認識される語句" style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <input type="text" id="correctTerm" placeholder="正しい表記" style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                    <select id="termCategory" style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <option value="general">📝 一般</option>
+                        <option value="business">💼 ビジネス</option>
+                        <option value="technical">🔧 技術</option>
+                        <option value="medical">🏥 医療</option>
+                        <option value="legal">⚖️ 法務</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button class="btn btn-success" onclick="addDictionaryTerm()">➕ 追加</button>
+                    <button class="btn btn-secondary" onclick="previewConversion()">👁️ プレビュー</button>
+                </div>
+                <div id="conversionPreview" style="background: #fef3c7; padding: 10px; border-radius: 6px; display: none;">
+                    <strong>👁️ 変換プレビュー:</strong>
+                    <div id="previewText" style="margin-top: 5px; font-family: monospace;"></div>
+                </div>
+            </div>
+
+            <!-- 統計情報 -->
+            <div style="background: #f0fdf4; border: 1px solid #22c55e; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px; color: #15803d;">📈 統計情報</h3>
+                <div id="dictionaryStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                    <!-- 統計情報がここに表示されます -->
+                </div>
+            </div>
+
+            <!-- 管理機能 -->
+            <div style="background: #fefce8; border: 1px solid #facc15; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px; color: #a16207;">🛠️ 管理機能</h3>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary btn-small" onclick="exportDictionary()">📎 エクスポート</button>
+                    <input type="file" id="dictionaryFile" accept=".json" style="display: none;" onchange="importDictionary(event)">
+                    <button class="btn btn-secondary btn-small" onclick="document.getElementById('dictionaryFile').click()">📁 インポート</button>
+                    <button class="btn btn-secondary btn-small" onclick="optimizeDictionary()">🎯 最適化</button>
+                    <button class="btn btn-secondary btn-small" onclick="resetDictionary()">🔄 リセット</button>
+                </div>
+            </div>
+
+            <!-- 検索・フィルタ -->
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 15px; margin-bottom: 15px; align-items: center;">
+                    <input type="text" id="dictionarySearch" placeholder="🔍 用語を検索..." style="flex: 1; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" oninput="searchDictionary()">
+                    <select id="categoryFilter" style="padding: 10px; border: 1px solid #d1d5db; border-radius: 6px;" onchange="filterDictionary()">
+                        <option value="all">📋 全てのカテゴリ</option>
+                        <option value="general">📝 一般</option>
+                        <option value="business">💼 ビジネス</option>
+                        <option value="technical">🔧 技術</option>
+                        <option value="medical">🏥 医療</option>
+                        <option value="legal">⚖️ 法務</option>
+                    </select>
+                </div>
+
+                <!-- 用語一覧 -->
+                <div id="dictionaryList" style="max-height: 400px; overflow-y: auto;">
+                    <div style="text-align: center; color: #64748b; padding: 40px;">
+                        まだ用語が登録されていません。<br>
+                        「デフォルト辞書」ボタンで基本用語を読み込むか、手動で用語を追加してください。
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Claude連携画面（要約テンプレート機能付き） -->
+        <div id="claude-tab" class="tab-content">
+            <div class="claude-section">
+                <h3>🤖 Claude.aiに送信して要約作成（テンプレート選択可能）</h3>
+                
+                <!-- 要約テンプレート選択セクション -->
+                <div class="template-selector">
+                    <h4>📋 要約テンプレートを選択してください：</h4>
+                    <div class="template-grid">
+                        <div class="template-btn active" data-template="general" onclick="selectTemplate('general')">
+                            <h5>🔄 汎用テンプレート</h5>
+                            <p>基本的な要約形式<br>（通話概要・重要ポイント・アクション・次ステップ）</p>
+                        </div>
+                        <div class="template-btn" data-template="meeting" onclick="selectTemplate('meeting')">
+                            <h5>🏢 会議用テンプレート</h5>
+                            <p>議題・参加者・決定事項・アクションアイテム・次回会議</p>
+                        </div>
+                        <div class="template-btn" data-template="sales" onclick="selectTemplate('sales')">
+                            <h5>💼 営業電話用テンプレート</h5>
+                            <p>顧客情報・ニーズ・課題・提案内容・次回アクション</p>
+                        </div>
+                        <div class="template-btn" data-template="support" onclick="selectTemplate('support')">
+                            <h5>🛠️ 問い合わせ対応用テンプレート</h5>
+                            <p>問題概要・対応内容・解決状況・フォローアップ</p>
+                        </div>
+                        <div class="template-btn" data-template="interview" onclick="selectTemplate('interview')">
+                            <h5>🎙️ インタビュー用テンプレート</h5>
+                            <p>質問項目・重要な回答・インサイト・追加確認事項</p>
+                        </div>
+                        <div class="template-btn" data-template="custom" onclick="selectTemplate('custom')">
+                            <h5>✏️ カスタムテンプレート</h5>
+                            <p>独自の要約形式を作成</p>
+                        </div>
+                    </div>
+
+                    <!-- カスタムテンプレート入力欄 -->
+                    <div id="customTemplateSection" class="custom-template-section hidden">
+                        <h5>📝 カスタムテンプレートを作成：</h5>
+                        <textarea 
+                            id="customTemplateText" 
+                            class="custom-template-input" 
+                            placeholder="独自の要約形式を入力してください（例：1. 目的、2. 結果、3. 今後の課題）">
+                        </textarea>
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-secondary btn-small" onclick="saveCustomTemplate()">💾 保存</button>
+                            <button class="btn btn-secondary btn-small" onclick="loadCustomTemplate()">📁 読み込み</button>
+                        </div>
+                    </div>
+                </div>
+
+                <p>新しいタブでClaude.aiが開きます。下記のプロンプトをコピーして貼り付けてください：</p>
+                <div class="claude-prompt" id="claudePrompt">
+                    文字起こしデータを選択してからこのタブを開いてください。
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="copyPrompt()">📋 プロンプトをコピー</button>
+                    <button class="btn btn-primary" onclick="openClaude()">🚀 プロンプトをコピーしてClaude.aiを開く</button>
+                </div>
+            </div>
+
+            <div class="summary-area">
+                <h3>📋 要約結果</h3>
+                <p style="margin-bottom: 10px; color: #64748b;">Claudeで生成された要約をここに貼り付けてください：</p>
+                <textarea 
+                    id="summaryText" 
+                    class="summary-text" 
+                    placeholder="Claudeから取得した要約をここに貼り付けてください...">
+                </textarea>
+                <div class="action-buttons">
+                    <button class="btn btn-success" onclick="saveSummary()">💾 要約付きで保存</button>
+                    <button class="btn btn-secondary" onclick="exportSummary()">📄 要約を出力</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ヘルプ・サポート画面 -->
+        <div id="help-tab" class="tab-content">
+            <!-- 初回利用ガイド -->
+            <div style="background: linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 100%); border-radius: 12px; padding: 25px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px; color: #01579b;">🎉 初めてご利用いただく方へ</h3>
+                <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+                    <h4 style="color: #1976d2; margin-bottom: 10px;">🚀 3ステップで簡単スタート！</h4>
+                    <ol style="color: #424242; line-height: 1.6; margin-left: 20px;">
+                        <li style="margin-bottom: 8px;"><strong>🎤 マイク許可:</strong> 「許可」をクリックしてマイクへのアクセスを許可</li>
+                        <li style="margin-bottom: 8px;"><strong>🔴 録音開始:</strong> 赤いボタンを押して録音開始</li>
+                        <li style="margin-bottom: 8px;"><strong>🤖 要約作成:</strong> Claude連携で自動要約を作成</li>
+                    </ol>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-primary btn-small" onclick="showQuickDemo()">🎥 クイックデモ</button>
+                    <button class="btn btn-secondary btn-small" onclick="loadDefaultDictionary()">📚 デフォルト辞書読み込み</button>
+                    <button class="btn btn-secondary btn-small" onclick="switchTab('main')">🚀 早速使ってみる</button>
+                </div>
+            </div>
+
+            <!-- 使い方ガイド -->
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px; color: #1e293b;">📝 使い方ガイド</h3>
+                
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #4f46e5; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        🎤 電話録音の手順
+                    </h4>
+                    <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <ol style="line-height: 1.6; margin-left: 20px; color: #475569;">
+                            <li>📱 スマートフォンでスピーカーフォンをONにする</li>
+                            <li>🎤 アプリで「録音開始」をタップ</li>
+                            <li>📞 電話を開始（環境音として録音）</li>
+                            <li>⏹️ 電話終了後「録音停止」をタップ</li>
+                            <li>💾 「履歴に保存」でデータを保存</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #059669; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        📚 用語辞書機能の活用
+                    </h4>
+                    <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <ul style="line-height: 1.6; margin-left: 20px; color: #166534;">
+                            <li><strong>リアルタイム変換:</strong> 音声認識中に自動で言い間違いを修正</li>
+                            <li><strong>デフォルト辞書:</strong> IT・AI・KPIなどのビジネス用語28個を内蔵</li>
+                            <li><strong>カスタム追加:</strong> 会社固有の用語や人名を追加可能</li>
+                            <li><strong>手動適用:</strong> 既存の文字起こしにも辞書を適用可能</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: #7c3aed; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        🤖 Claude連携で要約作成
+                    </h4>
+                    <div style="background: #f3f4f6; padding: 15px; border-radius: 8px;">
+                        <ul style="line-height: 1.6; margin-left: 20px; color: #374151;">
+                            <li><strong>5種類のテンプレート:</strong> 汎用・会議・営業・サポート・インタビュー</li>
+                            <li><strong>カスタムテンプレート:</strong> 独自の要約形式を作成・保存</li>
+                            <li><strong>ワンクリック連携:</strong> プロンプトをコピーしてClaude.aiを自動オープン</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ・トラブルシューティング -->
+            <div style="background: #fef7cd; border: 1px solid #fbbf24; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <h3 style="margin-bottom: 15px; color: #a16207;">❓ よくある質問＆トラブル解決</h3>
+                
+                <div class="faq-section">
+                    <div class="faq-item" style="margin-bottom: 15px; background: white; padding: 15px; border-radius: 8px;">
+                        <div class="faq-question" onclick="toggleFAQ(this)" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; color: #1f2937;">
+                            <span>🎤 マイクが許可されない・音声が認識されない</span>
+                            <span class="faq-toggle">▼</span>
+                        </div>
+                        <div class="faq-answer" style="display: none; margin-top: 10px; color: #4b5563; line-height: 1.6;">
+                            <p><strong>Chrome/Edgeの場合:</strong></p>
+                            <ol style="margin: 10px 0 10px 20px;">
+                                <li>アドレスバーの左側にある🔒アイコンをクリック</li>
+                                <li>「マイク」の設定を「許可」に変更</li>
+                                <li>ページを再読み込み</li>
+                            </ol>
+                            <p><strong>Safariの場合:</strong></p>
+                            <ol style="margin: 10px 0 10px 20px;">
+                                <li>Safari メニュー > 設定 > Webサイト</li>
+                                <li>「マイク」を選択</li>
+                                <li>このサイトを「許可」に設定</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="faq-item" style="margin-bottom: 15px; background: white; padding: 15px; border-radius: 8px;">
+                        <div class="faq-question" onclick="toggleFAQ(this)" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; color: #1f2937;">
+                            <span>📚 用語辞書が効かない・変換されない</span>
+                            <span class="faq-toggle">▼</span>
+                        </div>
+                        <div class="faq-answer" style="display: none; margin-top: 10px; color: #4b5563; line-height: 1.6;">
+                            <ol style="margin: 10px 0 10px 20px;">
+                                <li>「🔄 リアルタイム自動変換」がONになっているか確認</li>
+                                <li>用語が正しく登録されているか確認</li>
+                                <li>手動で「📚 辞書適用」ボタンを試す</li>
+                                <li>「📚 デフォルト辞書」で基本用語を読み込み</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="faq-item" style="margin-bottom: 15px; background: white; padding: 15px; border-radius: 8px;">
+                        <div class="faq-question" onclick="toggleFAQ(this)" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; color: #1f2937;">
+                            <span>⚡ 動作が重い・エラーが頻発する</span>
+                            <span class="faq-toggle">▼</span>
+                        </div>
+                        <div class="faq-answer" style="display: none; margin-top: 10px; color: #4b5563; line-height: 1.6;">
+                            <ol style="margin: 10px 0 10px 20px;">
+                                <li>ブラウザのキャッシュをクリア</li>
+                                <li>用語辞書で「🎯 最適化」を実行</li>
+                                <li>不要な履歴を削除</li>
+                                <li>ページを再読み込み</li>
+                                <li>Chromeの最新バージョンを使用</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <div class="faq-item" style="margin-bottom: 15px; background: white; padding: 15px; border-radius: 8px;">
+                        <div class="faq-question" onclick="toggleFAQ(this)" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; color: #1f2937;">
+                            <span>🤖 Claude連携がうまくいかない</span>
+                            <span class="faq-toggle">▼</span>
+                        </div>
+                        <div class="faq-answer" style="display: none; margin-top: 10px; color: #4b5563; line-height: 1.6;">
+                            <ol style="margin: 10px 0 10px 20px;">
+                                <li>文字起こしが完了しているか確認</li>
+                                <li>適切なテンプレートを選択</li>
+                                <li>「📋 プロンプトをコピー」で手動コピー</li>
+                                <li>Claude.aiで新しいチャットを開始</li>
+                                <li>Ctrl+Vでプロンプトを貼り付け</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- システム情報 -->
+            <div style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px;">
+                <h3 style="margin-bottom: 15px; color: #475569;">🛠️ システム情報</h3>
+                <div id="systemInfo" style="font-family: 'Courier New', monospace; font-size: 0.9rem; background: white; padding: 15px; border-radius: 8px;">
+                    <!-- システム情報がここに表示されます -->
+                </div>
+                <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary btn-small" onclick="runSystemDiagnostics()">🔍 診断実行</button>
+                    <button class="btn btn-secondary btn-small" onclick="clearAllData()">🗑️ データクリア</button>
+                    <button class="btn btn-secondary btn-small" onclick="exportAllData()">📦 データエクスポート</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let isRecording = false;
+        let recognition = null;
+        let recordingStartTime = null;
+        let recordingTimer = null;
+        let currentTranscription = '';
+        let currentTitle = '';
+        let selectedTemplate = 'general';
+
+        // 用語辞書データ構造
+        let termDictionary = [];
+        let dictionaryStats = {
+            totalTerms: 0,
+            totalConversions: 0,
+            categoryStats: {},
+            lastOptimization: null
+        };
+
+        // デフォルト用語辞書（28個の基本用語）
+        const defaultDictionary = [
+            // 技術用語
+            { wrong: 'あいてぃー', correct: 'IT', category: 'technical', priority: 100, usageCount: 0 },
+            { wrong: 'えーあい', correct: 'AI', category: 'technical', priority: 100, usageCount: 0 },
+            { wrong: 'でぃーえっくす', correct: 'DX', category: 'technical', priority: 90, usageCount: 0 },
+            { wrong: 'ゆーあい', correct: 'UI', category: 'technical', priority: 80, usageCount: 0 },
+            { wrong: 'ゆーえっくす', correct: 'UX', category: 'technical', priority: 80, usageCount: 0 },
+            { wrong: 'えーぴーあい', correct: 'API', category: 'technical', priority: 70, usageCount: 0 },
+            { wrong: 'えすでぃーけー', correct: 'SDK', category: 'technical', priority: 60, usageCount: 0 },
+            { wrong: 'しーえすえす', correct: 'CSS', category: 'technical', priority: 60, usageCount: 0 },
+            { wrong: 'えいちてぃーえむえる', correct: 'HTML', category: 'technical', priority: 60, usageCount: 0 },
+            { wrong: 'じぇーそん', correct: 'JSON', category: 'technical', priority: 50, usageCount: 0 },
+            { wrong: 'ぎっとはぶ', correct: 'GitHub', category: 'technical', priority: 50, usageCount: 0 },
+            { wrong: 'えーだぶりゅーえす', correct: 'AWS', category: 'technical', priority: 40, usageCount: 0 },
+
+            // ビジネス用語
+            { wrong: 'けーぴーあい', correct: 'KPI', category: 'business', priority: 90, usageCount: 0 },
+            { wrong: 'あーるおーあい', correct: 'ROI', category: 'business', priority: 80, usageCount: 0 },
+            { wrong: 'びーとぅーびー', correct: 'BtoB', category: 'business', priority: 70, usageCount: 0 },
+            { wrong: 'びーとぅーしー', correct: 'BtoC', category: 'business', priority: 70, usageCount: 0 },
+            { wrong: 'えすえるえー', correct: 'SLA', category: 'business', priority: 60, usageCount: 0 },
+            { wrong: 'えすいーおー', correct: 'SEO', category: 'business', priority: 60, usageCount: 0 },
+            { wrong: 'おーけーあーる', correct: 'OKR', category: 'business', priority: 50, usageCount: 0 },
+
+            // 法務用語
+            { wrong: 'えぬでぃーえー', correct: 'NDA', category: 'legal', priority: 80, usageCount: 0 },
+
+            // 医療用語
+            { wrong: 'しーてぃー', correct: 'CT', category: 'medical', priority: 70, usageCount: 0 },
+            { wrong: 'えむあーるあい', correct: 'MRI', category: 'medical', priority: 70, usageCount: 0 },
+            { wrong: 'あいしーゆー', correct: 'ICU', category: 'medical', priority: 60, usageCount: 0 },
+
+            // 一般用語
+            { wrong: 'ゆーえすえー', correct: 'USA', category: 'general', priority: 60, usageCount: 0 },
+            { wrong: 'ゆーけー', correct: 'UK', category: 'general', priority: 50, usageCount: 0 },
+            { wrong: 'じーでぃーぴー', correct: 'GDP', category: 'general', priority: 40, usageCount: 0 },
+            { wrong: 'ぴーでぃーえふ', correct: 'PDF', category: 'general', priority: 60, usageCount: 0 },
+            { wrong: 'ゆーあーるえる', correct: 'URL', category: 'general', priority: 50, usageCount: 0 }
+        ];
+
+        // 要約テンプレート定義
+        const summaryTemplates = {
+            general: {
+                name: '汎用テンプレート',
+                prompt: `以下の電話の文字起こし内容を要約してください。重要なポイント、アクションアイテム、次のステップを含めて整理してください。
+
+【電話の文字起こし内容】
+{transcription}
+
+【要約形式】
+1. 通話の概要
+2. 重要なポイント
+3. アクションアイテム
+4. 次のステップ`
+            },
+            meeting: {
+                name: '会議用テンプレート',
+                prompt: `以下の会議の文字起こし内容を会議用の形式で要約してください。
+
+【会議の文字起こし内容】
+{transcription}
+
+【会議要約形式】
+1. 会議の目的・議題
+2. 参加者
+3. 討議内容の要点
+4. 決定事項
+5. アクションアイテム（担当者・期限含む）
+6. 次回会議の予定
+7. その他の重要事項`
+            },
+            sales: {
+                name: '営業電話用テンプレート',
+                prompt: `以下の営業電話の文字起こし内容を営業活動用の形式で要約してください。
+
+【営業電話の文字起こし内容】
+{transcription}
+
+【営業電話要約形式】
+1. 顧客情報・背景
+2. 顧客のニーズ・課題
+3. 提案した商品・サービス
+4. 顧客の反応・関心度
+5. 提示した条件・価格
+6. 懸念点・課題
+7. 次回アクション・フォローアップ
+8. 案件の見込み度`
+            },
+            support: {
+                name: '問い合わせ対応用テンプレート',
+                prompt: `以下の顧客問い合わせ対応の文字起こし内容をサポート業務用の形式で要約してください。
+
+【問い合わせ対応の文字起こし内容】
+{transcription}
+
+【問い合わせ対応要約形式】
+1. 問い合わせ内容・問題の概要
+2. 顧客情報・環境
+3. 問題の原因
+4. 実施した対応・解決方法
+5. 解決状況（解決済み・進行中・未解決）
+6. 顧客の満足度
+7. フォローアップの必要性
+8. 今後の予防策・改善点`
+            },
+            interview: {
+                name: 'インタビュー用テンプレート',
+                prompt: `以下のインタビューの文字起こし内容をインタビュー記録用の形式で要約してください。
+
+【インタビューの文字起こし内容】
+{transcription}
+
+【インタビュー要約形式】
+1. インタビュー対象者・背景
+2. インタビューの目的
+3. 主要な質問項目と回答
+4. 重要なインサイト・発見
+5. 印象的なコメント・引用
+6. 今後の課題・検討事項
+7. 追加で確認が必要な事項
+8. 次回のアクション`
+            },
+            custom: {
+                name: 'カスタムテンプレート',
+                prompt: ''
+            }
+        };
+
+        // ===== 初期化処理 =====
+        document.addEventListener('DOMContentLoaded', function() {
+            initSpeechRecognition();
+            loadHistory();
+            loadCustomTemplate();
+            loadDictionary();
+            updateDictionaryStats();
+            
+            // 初回利用チェックとウェルカムメッセージ
+            checkFirstTimeUser();
+            
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                showStatus('音声認識機能を使用するには、Chrome、Edge、Safariをご利用ください。', 'error');
+            }
+        });
+
+        // ===== 用語辞書機能 =====
+        
+        // 辞書データの読み込み
+        function loadDictionary() {
+            const saved = localStorage.getItem('termDictionary');
+            const savedStats = localStorage.getItem('dictionaryStats');
+            
+            if (saved) {
+                termDictionary = JSON.parse(saved);
+            } else {
+                termDictionary = [];
+            }
+            
+            if (savedStats) {
+                dictionaryStats = JSON.parse(savedStats);
+            }
+            
+            renderDictionaryList();
+            updateDictionaryStats();
+        }
+
+        // 辞書データの保存
+        function saveDictionary() {
+            localStorage.setItem('termDictionary', JSON.stringify(termDictionary));
+            localStorage.setItem('dictionaryStats', JSON.stringify(dictionaryStats));
+        }
+
+        // デフォルト辞書を読み込み
+        function loadDefaultDictionary() {
+            if (confirm('デフォルト辞書（28個の基本用語）を読み込みますか？既存の辞書に追加されます。')) {
+                defaultDictionary.forEach(defaultTerm => {
+                    const exists = termDictionary.find(term => 
+                        term.wrong === defaultTerm.wrong && term.correct === defaultTerm.correct
+                    );
+                    if (!exists) {
+                        termDictionary.push({ ...defaultTerm, id: Date.now() + Math.random() });
+                    }
+                });
+                
+                saveDictionary();
+                renderDictionaryList();
+                updateDictionaryStats();
+                showStatus('デフォルト辞書を読み込みました！', 'success');
+            }
+        }
+
+        // 新しい用語を追加
+        function addDictionaryTerm() {
+            const wrongTerm = document.getElementById('wrongTerm').value.trim();
+            const correctTerm = document.getElementById('correctTerm').value.trim();
+            const category = document.getElementById('termCategory').value;
+            
+            if (!wrongTerm || !correctTerm) {
+                showStatus('誤認識される語句と正しい表記の両方を入力してください。', 'error');
+                return;
+            }
+            
+            // 重複チェック
+            const exists = termDictionary.find(term => 
+                term.wrong === wrongTerm && term.correct === correctTerm
+            );
+            
+            if (exists) {
+                showStatus('この用語は既に登録されています。', 'error');
+                return;
+            }
+            
+            const newTerm = {
+                id: Date.now() + Math.random(),
+                wrong: wrongTerm,
+                correct: correctTerm,
+                category: category,
+                priority: 100,
+                usageCount: 0,
+                created: new Date().toLocaleString('ja-JP')
+            };
+            
+            termDictionary.unshift(newTerm);
+            saveDictionary();
+            renderDictionaryList();
+            updateDictionaryStats();
+            
+            // フォームクリア
+            document.getElementById('wrongTerm').value = '';
+            document.getElementById('correctTerm').value = '';
+            
+            showStatus('用語を追加しました！', 'success');
+        }
+
+        // 変換プレビュー
+        function previewConversion() {
+            const wrongTerm = document.getElementById('wrongTerm').value.trim();
+            const correctTerm = document.getElementById('correctTerm').value.trim();
+            const transcriptionText = document.getElementById('transcriptionText').value;
+            
+            if (!wrongTerm || !correctTerm) {
+                showStatus('誤認識される語句と正しい表記を入力してください。', 'error');
+                return;
+            }
+            
+            const previewDiv = document.getElementById('conversionPreview');
+            const previewText = document.getElementById('previewText');
+            
+            let convertedText = transcriptionText;
+            if (transcriptionText) {
+                convertedText = transcriptionText.replace(new RegExp(escapeRegExp(wrongTerm), 'gi'), correctTerm);
+            } else {
+                convertedText = `例: "${wrongTerm}" → "${correctTerm}"`;
+            }
+            
+            previewText.textContent = convertedText;
+            previewDiv.style.display = 'block';
+        }
+
+        // 用語辞書をテキストに適用
+        function applyDictionaryToText() {
+            const transcriptionTextElement = document.getElementById('transcriptionText');
+            let text = transcriptionTextElement.value;
+            
+            if (!text.trim()) {
+                showStatus('適用する文字起こしがありません。', 'error');
+                return;
+            }
+            
+            let conversionsCount = 0;
+            const sortedTerms = termDictionary.sort((a, b) => b.priority - a.priority);
+            
+            sortedTerms.forEach(term => {
+                const regex = new RegExp(escapeRegExp(term.wrong), 'gi');
+                const matches = text.match(regex);
+                
+                if (matches) {
+                    text = text.replace(regex, term.correct);
+                    term.usageCount += matches.length;
+                    conversionsCount += matches.length;
+                    
+                    // 使用頻度に基づいて優先度を調整
+                    term.priority = Math.min(100, term.priority + matches.length);
+                }
+            });
+            
+            if (conversionsCount > 0) {
+                transcriptionTextElement.value = text;
+                currentTranscription = text;
+                
+                dictionaryStats.totalConversions += conversionsCount;
+                saveDictionary();
+                updateDictionaryStats();
+                
+                showStatus(`${conversionsCount}件の用語を変換しました！`, 'success');
+            } else {
+                showStatus('変換対象の用語が見つかりませんでした。', 'info');
+            }
+        }
+
+        // リアルタイム自動変換（音声認識時）
+        function applyAutoConversion(text) {
+            if (!document.getElementById('autoConvertToggle').checked) {
+                return text;
+            }
+            
+            let convertedText = text;
+            const sortedTerms = termDictionary.sort((a, b) => b.priority - a.priority);
+            
+            sortedTerms.forEach(term => {
+                const regex = new RegExp(escapeRegExp(term.wrong), 'gi');
+                const matches = convertedText.match(regex);
+                
+                if (matches) {
+                    convertedText = convertedText.replace(regex, term.correct);
+                    term.usageCount += matches.length;
+                    term.priority = Math.min(100, term.priority + matches.length);
+                    dictionaryStats.totalConversions += matches.length;
+                }
+            });
+            
+            if (convertedText !== text) {
+                saveDictionary();
+            }
+            
+            return convertedText;
+        }
+
+        // 用語一覧を表示
+        function renderDictionaryList() {
+            const listElement = document.getElementById('dictionaryList');
+            
+            if (termDictionary.length === 0) {
+                listElement.innerHTML = `
+                    <div style="text-align: center; color: #64748b; padding: 40px;">
+                        まだ用語が登録されていません。<br>
+                        「デフォルト辞書」ボタンで基本用語を読み込むか、手動で用語を追加してください。
+                    </div>
+                `;
+                return;
+            }
+            
+            const sortedTerms = termDictionary.sort((a, b) => b.priority - a.priority);
+            
+            listElement.innerHTML = sortedTerms.map(term => `
+                <div class="dictionary-item" data-id="${term.id}">
+                    <div class="dictionary-item-info">
+                        <div class="dictionary-item-terms">
+                            <span class="dictionary-item-wrong">"${escapeHtml(term.wrong)}"</span>
+                            <span>→</span>
+                            <span class="dictionary-item-correct">"${escapeHtml(term.correct)}"</span>
+                        </div>
+                        <div class="dictionary-item-meta">
+                            <span class="category-badge category-${term.category}">
+                                ${getCategoryIcon(term.category)} ${getCategoryName(term.category)}
+                            </span>
+                            <span>🎯 優先度: ${term.priority}</span>
+                            <span>📊 使用回数: ${term.usageCount}</span>
+                            <span>📅 ${term.created || '不明'}</span>
+                        </div>
+                    </div>
+                    <div class="dictionary-item-actions">
+                        <button class="btn btn-secondary btn-small" onclick="editDictionaryTerm('${term.id}')">✏️ 編集</button>
+                        <button class="btn btn-secondary btn-small" onclick="deleteDictionaryTerm('${term.id}')">🗑️ 削除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 用語を編集
+        function editDictionaryTerm(termId) {
+            const term = termDictionary.find(t => t.id === termId);
+            if (!term) return;
+            
+            const wrongTerm = prompt('誤認識される語句:', term.wrong);
+            if (wrongTerm === null) return;
+            
+            const correctTerm = prompt('正しい表記:', term.correct);
+            if (correctTerm === null) return;
+            
+            if (!wrongTerm.trim() || !correctTerm.trim()) {
+                showStatus('空の値は設定できません。', 'error');
+                return;
+            }
+            
+            term.wrong = wrongTerm.trim();
+            term.correct = correctTerm.trim();
+            
+            saveDictionary();
+            renderDictionaryList();
+            updateDictionaryStats();
+            showStatus('用語を更新しました。', 'success');
+        }
+
+        // 用語を削除
+        function deleteDictionaryTerm(termId) {
+            if (!confirm('この用語を削除しますか？')) return;
+            
+            termDictionary = termDictionary.filter(term => term.id !== termId);
+            saveDictionary();
+            renderDictionaryList();
+            updateDictionaryStats();
+            showStatus('用語を削除しました。', 'success');
+        }
+
+        // 統計情報を更新
+        function updateDictionaryStats() {
+            dictionaryStats.totalTerms = termDictionary.length;
+            
+            // カテゴリ別統計
+            dictionaryStats.categoryStats = {};
+            termDictionary.forEach(term => {
+                if (!dictionaryStats.categoryStats[term.category]) {
+                    dictionaryStats.categoryStats[term.category] = 0;
+                }
+                dictionaryStats.categoryStats[term.category]++;
+            });
+            
+            // 統計表示
+            const statsElement = document.getElementById('dictionaryStats');
+            statsElement.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: bold; color: #059669;">${dictionaryStats.totalTerms}</div>
+                    <div style="font-size: 0.9rem; color: #64748b;">登録用語数</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: bold; color: #2563eb;">${dictionaryStats.totalConversions}</div>
+                    <div style="font-size: 0.9rem; color: #64748b;">総変換回数</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: bold; color: #dc2626;">${getMostUsedCategory()}</div>
+                    <div style="font-size: 0.9rem; color: #64748b;">主要カテゴリ</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: bold; color: #7c3aed;">${getConversionRate().toFixed(1)}%</div>
+                    <div style="font-size: 0.9rem; color: #64748b;">変換効率</div>
+                </div>
+            `;
+            
+            saveDictionary();
+        }
+
+        // 検索機能
+        function searchDictionary() {
+            filterDictionary();
+        }
+
+        // フィルタ機能
+        function filterDictionary() {
+            const searchTerm = document.getElementById('dictionarySearch').value.toLowerCase();
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            
+            let filteredTerms = termDictionary;
+            
+            if (searchTerm) {
+                filteredTerms = filteredTerms.filter(term => 
+                    term.wrong.toLowerCase().includes(searchTerm) ||
+                    term.correct.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            if (categoryFilter !== 'all') {
+                filteredTerms = filteredTerms.filter(term => term.category === categoryFilter);
+            }
+            
+            const listElement = document.getElementById('dictionaryList');
+            if (filteredTerms.length === 0) {
+                listElement.innerHTML = `
+                    <div style="text-align: center; color: #64748b; padding: 40px;">
+                        検索条件に一致する用語が見つかりません。
+                    </div>
+                `;
+                return;
+            }
+            
+            const sortedTerms = filteredTerms.sort((a, b) => b.priority - a.priority);
+            
+            listElement.innerHTML = sortedTerms.map(term => `
+                <div class="dictionary-item" data-id="${term.id}">
+                    <div class="dictionary-item-info">
+                        <div class="dictionary-item-terms">
+                            <span class="dictionary-item-wrong">"${escapeHtml(term.wrong)}"</span>
+                            <span>→</span>
+                            <span class="dictionary-item-correct">"${escapeHtml(term.correct)}"</span>
+                        </div>
+                        <div class="dictionary-item-meta">
+                            <span class="category-badge category-${term.category}">
+                                ${getCategoryIcon(term.category)} ${getCategoryName(term.category)}
+                            </span>
+                            <span>🎯 優先度: ${term.priority}</span>
+                            <span>📊 使用回数: ${term.usageCount}</span>
+                            <span>📅 ${term.created || '不明'}</span>
+                        </div>
+                    </div>
+                    <div class="dictionary-item-actions">
+                        <button class="btn btn-secondary btn-small" onclick="editDictionaryTerm('${term.id}')">✏️ 編集</button>
+                        <button class="btn btn-secondary btn-small" onclick="deleteDictionaryTerm('${term.id}')">🗑️ 削除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 辞書を最適化
+        function optimizeDictionary() {
+            if (!confirm('辞書の最適化を実行しますか？使用されていない用語は削除される可能性があります。')) return;
+            
+            const beforeCount = termDictionary.length;
+            
+            // 優先度が低く、使用回数が0の用語を削除（作成から30日経過）
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            
+            termDictionary = termDictionary.filter(term => {
+                if (term.usageCount === 0 && term.priority < 20) {
+                    const createdDate = new Date(term.created || Date.now());
+                    return createdDate > thirtyDaysAgo;
+                }
+                return true;
+            });
+            
+            // 優先度を再計算
+            termDictionary.forEach(term => {
+                term.priority = Math.max(10, Math.min(100, 50 + term.usageCount * 5));
+            });
+            
+            dictionaryStats.lastOptimization = new Date().toLocaleString('ja-JP');
+            
+            saveDictionary();
+            renderDictionaryList();
+            updateDictionaryStats();
+            
+            const removedCount = beforeCount - termDictionary.length;
+            showStatus(`最適化完了！${removedCount}個の未使用用語を削除しました。`, 'success');
+        }
+
+        // 辞書をエクスポート
+        function exportDictionary() {
+            const data = {
+                dictionary: termDictionary,
+                stats: dictionaryStats,
+                exportDate: new Date().toLocaleString('ja-JP'),
+                version: '1.0'
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `用語辞書_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showStatus('用語辞書をエクスポートしました。', 'success');
+        }
+
+        // 辞書をインポート
+        function importDictionary(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (!data.dictionary || !Array.isArray(data.dictionary)) {
+                        throw new Error('無効なファイル形式です');
+                    }
+                    
+                    if (confirm(`${data.dictionary.length}個の用語をインポートしますか？既存の辞書に追加されます。`)) {
+                        data.dictionary.forEach(importedTerm => {
+                            const exists = termDictionary.find(term => 
+                                term.wrong === importedTerm.wrong && term.correct === importedTerm.correct
+                            );
+                            if (!exists) {
+                                termDictionary.push({ 
+                                    ...importedTerm, 
+                                    id: Date.now() + Math.random(),
+                                    created: importedTerm.created || new Date().toLocaleString('ja-JP')
+                                });
+                            }
+                        });
+                        
+                        saveDictionary();
+                        renderDictionaryList();
+                        updateDictionaryStats();
+                        showStatus('用語辞書をインポートしました！', 'success');
+                    }
+                } catch (error) {
+                    showStatus('ファイルの読み込みに失敗しました: ' + error.message, 'error');
+                }
+            };
+            
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // 辞書をリセット
+        function resetDictionary() {
+            if (!confirm('用語辞書を完全にリセットしますか？この操作は取り消せません。')) return;
+            
+            termDictionary = [];
+            dictionaryStats = {
+                totalTerms: 0,
+                totalConversions: 0,
+                categoryStats: {},
+                lastOptimization: null
+            };
+            
+            saveDictionary();
+            renderDictionaryList();
+            updateDictionaryStats();
+            showStatus('用語辞書をリセットしました。', 'success');
+        }
+
+        // ===== ユーティリティ関数 =====
+        
+        function getCategoryIcon(category) {
+            const icons = {
+                general: '📝',
+                business: '💼',
+                technical: '🔧',
+                medical: '🏥',
+                legal: '⚖️'
+            };
+            return icons[category] || '📝';
+        }
+
+        function getCategoryName(category) {
+            const names = {
+                general: '一般',
+                business: 'ビジネス',
+                technical: '技術',
+                medical: '医療',
+                legal: '法務'
+            };
+            return names[category] || '一般';
+        }
+
+        function getMostUsedCategory() {
+            const categories = dictionaryStats.categoryStats;
+            if (Object.keys(categories).length === 0) return '無し';
+            
+            const mostUsed = Object.keys(categories).reduce((a, b) => 
+                categories[a] > categories[b] ? a : b
+            );
+            
+            return getCategoryName(mostUsed);
+        }
+
+        function getConversionRate() {
+            if (termDictionary.length === 0) return 0;
+            const usedTerms = termDictionary.filter(term => term.usageCount > 0).length;
+            return (usedTerms / termDictionary.length) * 100;
+        }
+
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // ===== 音声認識機能 =====
+        
+        function initSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window) {
+                recognition = new webkitSpeechRecognition();
+            } else if ('SpeechRecognition' in window) {
+                recognition = new SpeechRecognition();
+            } else {
+                return false;
+            }
+
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'ja-JP';
+
+            recognition.onresult = function(event) {
+                let finalTranscript = '';
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                // 自動変換を適用
+                if (finalTranscript) {
+                    finalTranscript = applyAutoConversion(finalTranscript);
+                }
+
+                currentTranscription += finalTranscript;
+                const transcriptionText = document.getElementById('transcriptionText');
+                transcriptionText.value = currentTranscription + interimTranscript;
+            };
+
+            recognition.onerror = function(event) {
+                console.error('音声認識エラー:', event.error, event);
+                
+                switch(event.error) {
+                    case 'no-speech':
+                        showStatus('音声が検出されません。話してください。', 'info');
+                        break;
+                    case 'audio-capture':
+                        showStatus('マイクへのアクセスが拒否されました。', 'error');
+                        resetRecordingState();
+                        break;
+                    case 'not-allowed':
+                        showStatus('マイクの使用が許可されていません。', 'error');
+                        resetRecordingState();
+                        break;
+                    default:
+                        showStatus('音声認識でエラーが発生しました: ' + event.error, 'error');
+                        if (isRecording) {
+                            setTimeout(() => {
+                                if (isRecording) {
+                                    try {
+                                        recognition.start();
+                                    } catch (e) {
+                                        stopRecording();
+                                    }
+                                }
+                            }, 1000);
+                        }
+                        break;
+                }
+            };
+
+            recognition.onend = function() {
+                if (isRecording) {
+                    setTimeout(() => {
+                        if (isRecording) {
+                            try {
+                                recognition.start();
+                            } catch (error) {
+                                console.log('音声認識再開エラー:', error);
+                                stopRecording();
+                                showStatus('音声認識が停止されました。再度録音ボタンを押してください。', 'error');
+                            }
+                        }
+                    }, 100);
+                }
+            };
+
+            return true;
+        }
+
+        // ===== その他の既存機能 =====
+        
+        function switchTab(tabName) {
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            if (tabName === 'history') {
+                loadHistory();
+            } else if (tabName === 'dictionary') {
+                renderDictionaryList();
+                updateDictionaryStats();
+            }
+        }
+
+        function selectTemplate(templateName) {
+            selectedTemplate = templateName;
+            
+            document.querySelectorAll('.template-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`[data-template="${templateName}"]`).classList.add('active');
+            
+            const customSection = document.getElementById('customTemplateSection');
+            if (templateName === 'custom') {
+                customSection.classList.remove('hidden');
+            } else {
+                customSection.classList.add('hidden');
+            }
+            
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            if (transcriptionText) {
+                updateClaudePrompt();
+                showStatus(`「${summaryTemplates[templateName].name}」を選択し、プロンプトを更新しました。`, 'success');
+            } else {
+                document.getElementById('claudePrompt').textContent = '文字起こしデータを選択してからこのタブを開いてください。';
+                showStatus(`「${summaryTemplates[templateName].name}」を選択しました。`, 'success');
+            }
+        }
+
+        function updateClaudePrompt() {
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            if (!transcriptionText) {
+                document.getElementById('claudePrompt').textContent = '文字起こしデータを選択してからこのタブを開いてください。';
+                return;
+            }
+            
+            let prompt = '';
+            
+            if (selectedTemplate === 'custom') {
+                const customTemplate = document.getElementById('customTemplateText').value.trim();
+                if (!customTemplate) {
+                    document.getElementById('claudePrompt').textContent = 'カスタムテンプレートを入力してください。';
+                    return;
+                }
+                prompt = `以下の電話の文字起こし内容を以下の形式で要約してください。
+
+【電話の文字起こし内容】
+${transcriptionText}
+
+【要約形式】
+${customTemplate}`;
+            } else {
+                prompt = summaryTemplates[selectedTemplate].prompt.replace('{transcription}', transcriptionText);
+            }
+            
+            document.getElementById('claudePrompt').textContent = prompt;
+        }
+
+        function saveCustomTemplate() {
+            const customText = document.getElementById('customTemplateText').value.trim();
+            if (!customText) {
+                showStatus('カスタムテンプレートが入力されていません。', 'error');
+                return;
+            }
+            
+            localStorage.setItem('customSummaryTemplate', customText);
+            summaryTemplates.custom.prompt = customText;
+            
+            if (selectedTemplate === 'custom') {
+                updateClaudePrompt();
+                showStatus('カスタムテンプレートを保存し、プロンプトを更新しました。', 'success');
+            } else {
+                showStatus('カスタムテンプレートを保存しました。', 'success');
+            }
+        }
+
+        function loadCustomTemplate() {
+            const saved = localStorage.getItem('customSummaryTemplate');
+            if (saved) {
+                document.getElementById('customTemplateText').value = saved;
+                summaryTemplates.custom.prompt = saved;
+            }
+        }
+
+        function toggleRecording() {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        function startRecording() {
+            if (!recognition) {
+                showStatus('音声認識が利用できません。', 'error');
+                return;
+            }
+
+            isRecording = true;
+            
+            const transcriptionText = document.getElementById('transcriptionText');
+            const existingText = transcriptionText.value.trim();
+            
+            if (existingText) {
+                currentTranscription = existingText + '\n\n';
+                transcriptionText.value = currentTranscription;
+            } else {
+                currentTranscription = '';
+                transcriptionText.value = '';
+                
+                // 初回録音の場合の機能提案
+                if (!localStorage.getItem('hasRecordedBefore')) {
+                    suggestFeature('firstRecord');
+                    localStorage.setItem('hasRecordedBefore', 'true');
+                }
+            }
+            
+            recordingStartTime = Date.now();
+            
+            const recordButton = document.getElementById('recordButton');
+            const recordingStatus = document.getElementById('recordingStatus');
+            
+            recordButton.innerHTML = '⏹️<br>録音停止';
+            recordButton.classList.add('recording');
+            
+            if (existingText) {
+                recordingStatus.textContent = '録音継続中... 話してください';
+                showStatus('録音を継続します。既存の文字起こしに追加されます。', 'success');
+            } else {
+                recordingStatus.textContent = '録音中... 話してください';
+                showStatus('録音を開始しました。話してください。', 'success');
+            }
+            
+            startRecordingTimer();
+            
+            try {
+                recognition.start();
+            } catch (error) {
+                console.error('音声認識開始エラー:', error);
+                handleMicrophoneError(error);
+                resetRecordingState();
+            }
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            
+            const recordButton = document.getElementById('recordButton');
+            const recordingStatus = document.getElementById('recordingStatus');
+            
+            recordButton.innerHTML = '🎤<br>録音開始';
+            recordButton.classList.remove('recording');
+            recordingStatus.textContent = '録音完了';
+            
+            if (recordingTimer) {
+                clearInterval(recordingTimer);
+                recordingTimer = null;
+            }
+            
+            if (recognition) {
+                try {
+                    recognition.stop();
+                } catch (error) {
+                    console.error('音声認識停止エラー:', error);
+                }
+            }
+            
+            const transcriptionText = document.getElementById('transcriptionText').value;
+            if (transcriptionText.trim()) {
+                currentTranscription = transcriptionText;
+                
+                // 文字起こしの長さに応じて機能提案
+                if (transcriptionText.length > 500) {
+                    suggestFeature('longTranscription');
+                } else {
+                    suggestFeature('afterRecord');
+                }
+                
+                showStatus('録音を停止しました。文字起こしが完了しています。', 'success');
+            } else {
+                suggestFeature('emptyTranscription');
+                showStatus('録音を停止しました。音声が認識されませんでした。', 'info');
+            }
+        }
+
+        function resetRecordingState() {
+            isRecording = false;
+            const recordButton = document.getElementById('recordButton');
+            const recordingStatus = document.getElementById('recordingStatus');
+            
+            recordButton.innerHTML = '🎤<br>録音開始';
+            recordButton.classList.remove('recording');
+            recordingStatus.textContent = '録音準備完了';
+            
+            if (recordingTimer) {
+                clearInterval(recordingTimer);
+                recordingTimer = null;
+            }
+        }
+
+        function startRecordingTimer() {
+            recordingTimer = setInterval(() => {
+                const elapsed = Date.now() - recordingStartTime;
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('recordingTime').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function prepareClaudePrompt() {
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            if (!transcriptionText) {
+                showStatus('Claudeに送信する文字起こしがありません。', 'error');
+                return;
+            }
+            
+            let prompt = '';
+            
+            if (selectedTemplate === 'custom') {
+                const customTemplate = document.getElementById('customTemplateText').value.trim();
+                if (!customTemplate) {
+                    showStatus('カスタムテンプレートが入力されていません。', 'error');
+                    return;
+                }
+                prompt = `以下の電話の文字起こし内容を以下の形式で要約してください。
+
+【電話の文字起こし内容】
+${transcriptionText}
+
+【要約形式】
+${customTemplate}`;
+            } else {
+                prompt = summaryTemplates[selectedTemplate].prompt.replace('{transcription}', transcriptionText);
+            }
+            
+            document.getElementById('claudePrompt').textContent = prompt;
+            showStatus(`「${summaryTemplates[selectedTemplate].name}」でClaude連携の準備が完了しました。`, 'success');
+            
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelector('[onclick="switchTab(\'claude\')"]').classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById('claude-tab').classList.add('active');
+        }
+
+        function saveTranscription() {
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            if (!transcriptionText) {
+                showStatus('保存する文字起こしがありません。', 'error');
+                return;
+            }
+            
+            const title = prompt('タイトルを入力してください:', `電話記録_${new Date().toLocaleString('ja-JP').replace(/[/:]/g, '-')}`);
+            if (!title) return;
+            
+            const recordData = {
+                id: Date.now().toString(),
+                title: title,
+                transcription: transcriptionText,
+                summary: '',
+                template: selectedTemplate,
+                created_at: new Date().toLocaleString('ja-JP'),
+                duration: document.getElementById('recordingTime').textContent
+            };
+            
+            let history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            history.unshift(recordData);
+            localStorage.setItem('transcriptionHistory', JSON.stringify(history));
+            
+            showStatus('履歴に保存しました！', 'success');
+            currentTitle = title;
+        }
+
+        function copyPrompt() {
+            const prompt = document.getElementById('claudePrompt').textContent;
+            navigator.clipboard.writeText(prompt).then(() => {
+                showStatus('プロンプトをクリップボードにコピーしました。', 'success');
+            }).catch(() => {
+                showStatus('コピーに失敗しました。', 'error');
+            });
+        }
+
+        function openClaude() {
+            const prompt = document.getElementById('claudePrompt').textContent;
+            if (prompt.trim() && prompt !== '文字起こしデータを選択してからこのタブを開いてください。') {
+                navigator.clipboard.writeText(prompt).then(() => {
+                    showStatus('プロンプトをコピーしてClaude.aiを開きました。Claude.aiで貼り付け（Ctrl+V）してください。', 'success');
+                }).catch(() => {
+                    showStatus('プロンプトのコピーに失敗しました。手動でコピーしてください。', 'error');
+                });
+            } else {
+                showStatus('Claude.aiを開きました。先に文字起こしを行ってからプロンプトを生成してください。', 'info');
+            }
+            
+            window.open('https://claude.ai/', '_blank');
+        }
+
+        function saveSummary() {
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            const summaryText = document.getElementById('summaryText').value.trim();
+            
+            if (!transcriptionText) {
+                showStatus('元の文字起こしがありません。', 'error');
+                return;
+            }
+            
+            if (!summaryText) {
+                showStatus('要約が入力されていません。', 'error');
+                return;
+            }
+            
+            const title = currentTitle || prompt('タイトルを入力してください:', `電話記録_${new Date().toLocaleString('ja-JP').replace(/[/:]/g, '-')}`);
+            if (!title) return;
+            
+            const recordData = {
+                id: Date.now().toString(),
+                title: title,
+                transcription: transcriptionText,
+                summary: summaryText,
+                template: selectedTemplate,
+                created_at: new Date().toLocaleString('ja-JP'),
+                duration: document.getElementById('recordingTime').textContent
+            };
+            
+            let history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            const existingIndex = history.findIndex(item => item.title === title);
+            
+            if (existingIndex !== -1) {
+                history[existingIndex] = recordData;
+            } else {
+                history.unshift(recordData);
+            }
+            
+            localStorage.setItem('transcriptionHistory', JSON.stringify(history));
+            showStatus('要約付きで履歴に保存しました！', 'success');
+            currentTitle = title;
+        }
+
+        function exportTranscription() {
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            if (!transcriptionText) {
+                showStatus('出力する文字起こしがありません。', 'error');
+                return;
+            }
+            
+            const title = currentTitle || 'transcription';
+            const timestamp = new Date().toLocaleString('ja-JP');
+            const duration = document.getElementById('recordingTime').textContent;
+            
+            const content = `=======================================
+電話内容文字起こし結果
+=======================================
+
+日時: ${timestamp}
+録音時間: ${duration}
+タイトル: ${title}
+使用テンプレート: ${summaryTemplates[selectedTemplate].name}
+
+【文字起こし内容】
+${transcriptionText}
+`;
+            
+            downloadTextFile(content, `${title}_${Date.now()}.txt`);
+            showStatus('テキストファイルをダウンロードしました。', 'success');
+        }
+
+        function exportSummary() {
+            const summaryText = document.getElementById('summaryText').value.trim();
+            if (!summaryText) {
+                showStatus('出力する要約がありません。', 'error');
+                return;
+            }
+            
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            const title = currentTitle || 'summary';
+            const timestamp = new Date().toLocaleString('ja-JP');
+            const duration = document.getElementById('recordingTime').textContent;
+            
+            const content = `=======================================
+電話内容文字起こし・要約結果
+=======================================
+
+日時: ${timestamp}
+録音時間: ${duration}
+タイトル: ${title}
+使用テンプレート: ${summaryTemplates[selectedTemplate].name}
+
+【文字起こし内容】
+${transcriptionText}
+
+【要約】
+${summaryText}
+`;
+            
+            downloadTextFile(content, `${title}_要約_${Date.now()}.txt`);
+            showStatus('要約付きテキストファイルをダウンロードしました。', 'success');
+        }
+
+        function clearTranscription() {
+            if (confirm('文字起こし内容をクリアしますか？')) {
+                document.getElementById('transcriptionText').value = '';
+                document.getElementById('recordingTime').textContent = '00:00';
+                currentTranscription = '';
+                currentTitle = '';
+                recordingStartTime = null;
+                showStatus('クリアしました。', 'info');
+            }
+        }
+
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            const historyList = document.getElementById('historyList');
+            
+            if (history.length === 0) {
+                historyList.innerHTML = `
+                    <div style="text-align: center; color: #64748b; padding: 40px;">
+                        まだ履歴がありません。<br>
+                        録音・文字起こしを行って保存してください。
+                    </div>
+                `;
+                return;
+            }
+            
+            historyList.innerHTML = history.map(item => `
+                <div class="history-item" data-id="${item.id}">
+                    <div class="history-header">
+                        <div>
+                            <div class="history-title">${escapeHtml(item.title)}</div>
+                            <div class="history-meta">
+                                📅 ${item.created_at} | ⏱️ ${item.duration} | 📋 ${item.template ? summaryTemplates[item.template]?.name || item.template : '汎用テンプレート'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="history-preview">
+                        ${escapeHtml(item.transcription.substring(0, 150))}${item.transcription.length > 150 ? '...' : ''}
+                    </div>
+                    ${item.summary ? `
+                        <div class="history-preview" style="background: #f0fdf4; padding: 10px; border-radius: 6px; margin-top: 10px;">
+                            <strong>📋 要約:</strong> ${escapeHtml(item.summary.substring(0, 100))}${item.summary.length > 100 ? '...' : ''}
+                        </div>
+                    ` : ''}
+                    <div class="history-actions">
+                        <button class="btn btn-secondary btn-small" onclick="loadHistoryItem('${item.id}')">📖 開く</button>
+                        <button class="btn btn-secondary btn-small" onclick="exportHistoryItem('${item.id}')">📄 出力</button>
+                        <button class="btn btn-secondary btn-small" onclick="deleteHistoryItem('${item.id}')">🗑️ 削除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadHistoryItem(id) {
+            const history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            const item = history.find(h => h.id === id);
+            
+            if (!item) {
+                showStatus('履歴項目が見つかりません。', 'error');
+                return;
+            }
+            
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelector('[onclick="switchTab(\'main\')"]').classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById('main-tab').classList.add('active');
+            
+            document.getElementById('transcriptionText').value = item.transcription;
+            document.getElementById('summaryText').value = item.summary || '';
+            currentTitle = item.title;
+            currentTranscription = item.transcription;
+            
+            if (item.template) {
+                selectedTemplate = item.template;
+            }
+            
+            showStatus(`「${item.title}」を読み込みました。`, 'success');
+        }
+
+        function exportHistoryItem(id) {
+            const history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            const item = history.find(h => h.id === id);
+            
+            if (!item) {
+                showStatus('履歴項目が見つかりません。', 'error');
+                return;
+            }
+            
+            const content = `=======================================
+電話内容文字起こし・要約結果
+=======================================
+
+日時: ${item.created_at}
+録音時間: ${item.duration}
+タイトル: ${item.title}
+使用テンプレート: ${item.template ? summaryTemplates[item.template]?.name || item.template : '汎用テンプレート'}
+
+【文字起こし内容】
+${item.transcription}
+
+${item.summary ? `【要約】
+${item.summary}` : ''}
+`;
+            
+            downloadTextFile(content, `${item.title}_${Date.now()}.txt`);
+            showStatus('テキストファイルをダウンロードしました。', 'success');
+        }
+
+        function deleteHistoryItem(id) {
+            if (!confirm('この履歴項目を削除しますか？')) return;
+            
+            let history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('transcriptionHistory', JSON.stringify(history));
+            
+            loadHistory();
+            showStatus('履歴項目を削除しました。', 'success');
+        }
+
+        function filterHistory() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            const historyItems = document.querySelectorAll('.history-item');
+            
+            historyItems.forEach(item => {
+                const title = item.querySelector('.history-title').textContent.toLowerCase();
+                const preview = item.querySelector('.history-preview').textContent.toLowerCase();
+                
+                if (title.includes(searchTerm) || preview.includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        function clearAllHistory() {
+            if (!confirm('すべての履歴を削除しますか？この操作は取り消せません。')) return;
+            
+            localStorage.removeItem('transcriptionHistory');
+            loadHistory();
+            showStatus('すべての履歴を削除しました。', 'success');
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+
+        function downloadTextFile(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ===== 初回利用者サポート =====
+        
+        // 初回利用チェック
+        function checkFirstTimeUser() {
+            const hasUsedBefore = localStorage.getItem('hasUsedApp');
+            
+            if (!hasUsedBefore) {
+                // 初回利用者向けウェルカム
+                setTimeout(() => {
+                    showWelcomeMessage();
+                }, 1500);
+            } else {
+                // リピーター向けの簡単な歓迎
+                setTimeout(() => {
+                    showStatus('🚀 おかえりなさい！電話録音アプリが準備完了しました。', 'success');
+                }, 500);
+            }
+        }
+
+        // ウェルカムメッセージを表示
+        function showWelcomeMessage() {
+            const welcomeMessage = `🎉 電話録音・文字起こしアプリへようこそ！
+
+🚀 このアプリでできること：
+• 🎤 リアルタイム音声認識
+• 📚 高精度な用語辞書機能
+• 🤖 Claude AI連携で自動要約
+• 📋 履歴管理とエクスポート
+
+💡 初めての方へのおすすめ：
+1. 「ヘルプ」タブで使い方をチェック
+2. デフォルト辞書を読み込み
+3. テスト録音で動作確認
+
+今すぐ始めますか？`;
+            
+            const userChoice = confirm(welcomeMessage + '\n\n「はい」でデフォルト辞書を読み込み、\n「いいえ」でヘルプタブを開きます。');
+            
+            if (userChoice) {
+                // デフォルト辞書を読み込み
+                loadDefaultDictionary();
+                showStatus('🎉 ウェルカム！デフォルト辞書を読み込みました。録音ボタンを押して始めてください！', 'success');
+            } else {
+                // ヘルプタブを表示
+                switchTab('help');
+                document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+                document.querySelector('[onclick="switchTab(\'help\')"]').classList.add('active');
+                showStatus('📚 ヘルプタブを開きました。使い方を確認してください。', 'info');
+            }
+            
+            // 初回利用フラグを設定
+            localStorage.setItem('hasUsedApp', 'true');
+            localStorage.setItem('firstUsedDate', new Date().toISOString());
+        }
+
+        // エラーハンドリングの強化
+        function handleMicrophoneError(error) {
+            console.error('マイクエラー:', error);
+            
+            let errorMessage = '';
+            let helpLink = '';
+            
+            switch(error.name || error.error) {
+                case 'NotAllowedError':
+                case 'not-allowed':
+                    errorMessage = '🎤 マイクの使用が許可されていません。';
+                    helpLink = 'ブラウザの設定でマイクを許可してください。';
+                    break;
+                case 'NotFoundError':
+                case 'audio-capture':
+                    errorMessage = '🔍 マイクが見つかりません。';
+                    helpLink = 'マイクが接続されているか確認してください。';
+                    break;
+                case 'network':
+                    errorMessage = '🌐 ネットワークエラーが発生しました。';
+                    helpLink = 'インターネット接続を確認してください。';
+                    break;
+                case 'no-speech':
+                    errorMessage = '🔇 音声が検出されません。';
+                    helpLink = 'もう一度話してみてください。';
+                    break;
+                default:
+                    errorMessage = '⚠️ 音声認識でエラーが発生しました。';
+                    helpLink = 'ヘルプタブでトラブルシューティングを確認してください。';
+                    break;
+            }
+            
+            const fullMessage = `${errorMessage}\n${helpLink}`;
+            showStatus(fullMessage, 'error');
+            
+            // エラーログを保存
+            const errorLog = JSON.parse(localStorage.getItem('errorLog') || '[]');
+            errorLog.push({
+                timestamp: new Date().toISOString(),
+                error: error.name || error.error || 'unknown',
+                message: error.message || '詳細不明',
+                userAgent: navigator.userAgent
+            });
+            
+            // 直近10件のみ保存
+            if (errorLog.length > 10) {
+                errorLog.shift();
+            }
+            
+            localStorage.setItem('errorLog', JSON.stringify(errorLog));
+        }
+
+        // 機能提案システム
+        function suggestFeature(action) {
+            const suggestions = {
+                'firstRecord': '💡 初めての録音ですね！デフォルト辞書を読み込んでおくと、より正確な文字起こしができます。',
+                'afterRecord': '🎉 録音が完了しました！「辞書適用」で用語を正しくしてから、Claude連携で要約を作ってみませんか？',
+                'emptyTranscription': '📝 文字起こしが空のようです。マイクの許可や音量を確認して、もう一度試してみてください。',
+                'longTranscription': '📜 長い文字起こしですね！用途に合ったテンプレート（会議・営業・サポート等）で要約すると見やすくなります。'
+            };
+            
+            if (suggestions[action]) {
+                setTimeout(() => {
+                    showStatus(suggestions[action], 'info');
+                }, 1000);
+            }
+        }
+
+        // ===== ヘルプ機能 =====
+        
+        // FAQの開閉
+        function toggleFAQ(element) {
+            const answer = element.parentNode.querySelector('.faq-answer');
+            const toggle = element.querySelector('.faq-toggle');
+            
+            if (answer.style.display === 'none' || answer.style.display === '') {
+                answer.style.display = 'block';
+                toggle.textContent = '▲';
+            } else {
+                answer.style.display = 'none';
+                toggle.textContent = '▼';
+            }
+        }
+
+        // クイックデモ表示
+        function showQuickDemo() {
+            const demoSteps = [
+                '🎤 マイク許可のポップアップが表示されたら「許可」をクリック',
+                '🔴 メインタブの赤い録音ボタンをクリック',
+                '🗣️ 「こんにちは、テストです」などと話してみる',
+                '⏹️ 数秒後に録音停止ボタンをクリック',
+                '📚 「辞書適用」ボタンで用語変換をテスト',
+                '🤖 「Claude連携」で要約作成をテスト'
+            ];
+            
+            let message = '🎉 クイックデモ手順:\n\n';
+            demoSteps.forEach((step, index) => {
+                message += `${index + 1}. ${step}\n`;
+            });
+            message += '\n💡 まずはデフォルト辞書を読み込んでから開始することをおすすめします！';
+            
+            alert(message);
+            
+            // メインタブに移動
+            switchTab('main');
+        }
+
+        // システム診断実行
+        function runSystemDiagnostics() {
+            const systemInfo = document.getElementById('systemInfo');
+            systemInfo.innerHTML = '🔍 診断中...';
+            
+            setTimeout(() => {
+                const diagnostics = {
+                    'ブラウザ': navigator.userAgent,
+                    '言語': navigator.language,
+                    'オンライン状態': navigator.onLine ? '✅ オンライン' : '❌ オフライン',
+                    'マイクサポート': navigator.mediaDevices ? '✅ サポート' : '❌ 非サポート',
+                    '音声認識サポート': ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) ? '✅ サポート' : '❌ 非サポート',
+                    'ローカルストレージサポート': typeof(Storage) !== 'undefined' ? '✅ サポート' : '❌ 非サポート',
+                    '用語辞書登録数': `${termDictionary.length}個`,
+                    '履歴件数': `${JSON.parse(localStorage.getItem('transcriptionHistory') || '[]').length}件`,
+                    '総変換回数': `${dictionaryStats.totalConversions}回`,
+                    'メモリ使用量': navigator.deviceMemory ? `${navigator.deviceMemory}GB` : '不明',
+                    '接続タイプ': navigator.connection ? navigator.connection.effectiveType || '不明' : '不明',
+                    'タイムスタンプ': new Date().toLocaleString('ja-JP')
+                };
+                
+                let infoHtml = '📊 システム診断結果:\n\n';
+                Object.entries(diagnostics).forEach(([key, value]) => {
+                    infoHtml += `${key}: ${value}\n`;
+                });
+                
+                systemInfo.textContent = infoHtml;
+                showStatus('システム診断が完了しました。', 'success');
+            }, 1000);
+        }
+
+        // 全データクリア
+        function clearAllData() {
+            if (!confirm('⚠️ 全てのデータ（履歴・用語辞書・設定）を削除します。\nこの操作は取り消せません。\n\n続行しますか？')) {
+                return;
+            }
+            
+            // 全データを削除
+            localStorage.clear();
+            
+            // グローバル変数をリセット
+            termDictionary = [];
+            dictionaryStats = {
+                totalTerms: 0,
+                totalConversions: 0,
+                categoryStats: {},
+                lastOptimization: null
+            };
+            
+            // UIをリセット
+            document.getElementById('transcriptionText').value = '';
+            document.getElementById('summaryText').value = '';
+            document.getElementById('recordingTime').textContent = '00:00';
+            
+            // 状態をリセット
+            currentTranscription = '';
+            currentTitle = '';
+            selectedTemplate = 'general';
+            
+            // 各画面を更新
+            loadHistory();
+            renderDictionaryList();
+            updateDictionaryStats();
+            
+            showStatus('全テのデータを削除しました。アプリを初期状態にリセットしました。', 'success');
+            
+            // メインタブに移動
+            switchTab('main');
+        }
+
+        // 全データエクスポート
+        function exportAllData() {
+            const allData = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                transcriptionHistory: JSON.parse(localStorage.getItem('transcriptionHistory') || '[]'),
+                termDictionary: termDictionary,
+                dictionaryStats: dictionaryStats,
+                customTemplate: localStorage.getItem('customSummaryTemplate') || '',
+                appSettings: {
+                    autoConvert: document.getElementById('autoConvertToggle').checked,
+                    selectedTemplate: selectedTemplate
+                },
+                systemInfo: {
+                    userAgent: navigator.userAgent,
+                    language: navigator.language,
+                    exportTimestamp: new Date().toLocaleString('ja-JP')
+                }
+            };
+            
+            const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `電話録音アプリ_全データ_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showStatus('全データをエクスポートしました。', 'success');
+        }
+
+        // ===== 初期化処理の拡張 =====
+        
+        // ページ読み込み時にシステム情報を表示
+        document.addEventListener('DOMContentLoaded', function() {
+            // 既存の初期化処理の後に実行
+            setTimeout(() => {
+                if (document.getElementById('systemInfo')) {
+                    runSystemDiagnostics();
+                }
+            }, 1000);
+        });
+
+        console.log('電話内容文字起こし・要約PWA が正常に起動しました');
+        console.log('用語辞書機能が有効です');
+        console.log('要約テンプレート機能が有効です');
+        console.log('ヘルプ・サポート機能が有効です');
+        
+    </script>
+</body>
+</html>

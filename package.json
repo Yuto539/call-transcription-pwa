@@ -1,0 +1,44 @@
+{
+  "name": "call-transcription-pwa",
+  "version": "1.2.0",
+  "description": "📞 電話内容文字起こし・要約PWA - リアルタイム音声認識とClaude AI連携",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx serve . -p 3000",
+    "build": "echo 'Static PWA - No build required'",
+    "start": "npx serve . -p 3000",
+    "preview": "npx serve . -p 8080",
+    "test": "echo 'Testing PWA functionality...'",
+    "lighthouse": "npx lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html"
+  },
+  "keywords": [
+    "pwa",
+    "progressive-web-app",
+    "voice-transcription",
+    "call-recorder",
+    "speech-recognition",
+    "claude-ai",
+    "japanese",
+    "real-time",
+    "transcription",
+    "summary",
+    "business-tools"
+  ],
+  "author": "Developer",
+  "license": "MIT",
+  "homepage": "https://github.com/yourusername/call-transcription-pwa",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/call-transcription-pwa.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/call-transcription-pwa/issues"
+  },
+  "devDependencies": {
+    "serve": "^14.2.1",
+    "lighthouse": "^11.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

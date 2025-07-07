@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>電話内容文字起こし・要約アプリ</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            min-height: 100vh;
+            background: white;
+            box-shadow: 0 0 30px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #64748b;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab.active {
+            background: white;
+            color: #4f46e5;
+            border-bottom: 3px solid #4f46e5;
+        }
+
+        .nav-tab:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+            min-height: 500px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* メイン録音画面 */
+        .recording-area {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .record-button {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.3);
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .record-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(239, 68, 68, 0.4);
+        }
+
+        .record-button.recording {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            animation: pulse-record 2s infinite;
+        }
+
+        .record-button.recording::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+            animation: ripple 1.5s infinite;
+        }
+
+        @keyframes pulse-record {
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+
+        @keyframes ripple {
+            0% { transform: scale(0) rotate(0deg); opacity: 1; }
+            100% { transform: scale(1) rotate(180deg); opacity: 0; }
+        }
+
+        .recording-status {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .recording-time {
+            font-size: 2rem;
+            color: #ef4444;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+
+        .transcription-area {
+            margin: 30px 0;
+        }
+
+        .transcription-text {
+            width: 100%;
+            min-height: 300px;
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            line-height: 1.6;
+            resize: vertical;
+            font-family: inherit;
+            background: #fafafa;
+            transition: border-color 0.3s ease;
+        }
+
+        .transcription-text:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.9rem;
+        }
+
+        /* Claude連携画面 - 要約テンプレート機能追加 */
+        .claude-section {
+            background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .template-selector {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #d1d5db;
+        }
+
+        .template-selector h4 {
+            color: #374151;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .template-btn {
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .template-btn:hover {
+            border-color: #4f46e5;
+            background: #eef2ff;
+        }
+
+        .template-btn.active {
+            border-color: #4f46e5;
+            background: #eef2ff;
+            color: #4f46e5;
+        }
+
+        .template-btn h5 {
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+
+        .template-btn p {
+            font-size: 0.8rem;
+            color: #64748b;
+            line-height: 1.3;
+        }
+
+        .custom-template-section {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .custom-template-input {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-family: inherit;
+            resize: vertical;
+        }
+
+        .claude-prompt {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #d1d5db;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            color: #374151;
+        }
+
+        .summary-area {
+            margin-top: 20px;
+        }
+
+        .summary-text {
+            width: 100%;
+            min-height: 200px;
+            padding: 15px;
+            border: 2px solid #bbf7d0;
+            border-radius: 8px;
+            background: #f0fdf4;
+            font-size: 1rem;
+            line-height: 1.6;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        /* ステータス・通知 */
+        .status {
+            margin: 15px 0;
+            padding: 12px 15px;
+            border-radius: 8px;
+            display: none;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .status.error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .status.info {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #dbeafe;
+        }
+
+        /* 履歴画面 */
+        .history-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+
+        .search-box {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .history-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .history-item:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .history-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 5px;
+        }
+
+        .history-meta {
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+
+        .history-preview {
+            color: #475569;
+            line-height: 1.5;
+            margin: 10px 0;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+        }
+
+        .history-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .container {
+                margin: 0;
+                min-height: 100vh;
+            }
+            
+            .header {
+                padding: 15px 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .tab-content {
+                padding: 20px;
+            }
+            
+            .record-button {
+                width: 150px;
+                height: 150px;
+                font-size: 1rem;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .btn {
+                justify-content: center;
+            }
+            
+            .history-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .history-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .history-actions {
+                margin-top: 10px;
+            }
+
+            .template-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 隠し要素 */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📞 電話内容文字起こし・要約アプリ</h1>
+            <p>リアルタイム録音で自動文字起こし＆Claude連携要約（テンプレート機能付き）</p>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('main')">🎤 録音・文字起こし</button>
+            <button class="nav-tab" onclick="switchTab('history')">📋 履歴</button>
+            <button class="nav-tab" onclick="switchTab('claude')">🤖 Claude連携</button>
+        </div>
+
+        <!-- メイン録音画面 -->
+        <div id="main-tab" class="tab-content active">
+            <div class="recording-area">
+                <button id="recordButton" class="record-button">
+                    🎤<br>録音開始
+                </button>
+                <div class="recording-status" id="recordingStatus">録音準備完了</div>
+                <div class="recording-time" id="recordingTime">00:00</div>
+            </div>
+
+            <div class="status" id="status"></div>
+
+            <div class="transcription-area">
+                <textarea 
+                    id="transcriptionText" 
+                    class="transcription-text" 
+                    placeholder="録音ボタンを押すと、リアルタイムで文字起こしが表示されます...">
+                </textarea>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-success" id="saveBtn">💾 履歴に保存</button>
+                <button class="btn btn-primary" id="sendToClaudeBtn">🤖 Claude連携</button>
+                <button class="btn btn-secondary" id="exportBtn">📄 テキスト出力</button>
+                <button class="btn btn-secondary" id="clearBtn">🗑️ クリア</button>
+            </div>
+        </div>
+
+        <!-- 履歴画面 -->
+        <div id="history-tab" class="tab-content">
+            <div class="history-controls">
+                <input type="text" id="searchBox" class="search-box" placeholder="🔍 履歴を検索...">
+                <button class="btn btn-secondary btn-small" id="clearHistoryBtn">🗑️ 履歴削除</button>
+            </div>
+            
+            <div id="historyList" class="history-list">
+                <div style="text-align: center; color: #64748b; padding: 40px;">
+                    まだ履歴がありません。<br>
+                    録音・文字起こしを行って保存してください。
+                </div>
+            </div>
+        </div>
+
+        <!-- Claude連携画面（要約テンプレート機能付き） -->
+        <div id="claude-tab" class="tab-content">
+            <div class="claude-section">
+                <h3>🤖 Claude.aiに送信して要約作成（テンプレート選択可能）</h3>
+                
+                <!-- 要約テンプレート選択セクション -->
+                <div class="template-selector">
+                    <h4>📋 要約テンプレートを選択してください：</h4>
+                    <div class="template-grid">
+                        <div class="template-btn active" data-template="general" onclick="selectTemplate('general')">
+                            <h5>🔄 汎用テンプレート</h5>
+                            <p>基本的な要約形式<br>（通話概要・重要ポイント・アクション・次ステップ）</p>
+                        </div>
+                        <div class="template-btn" data-template="meeting" onclick="selectTemplate('meeting')">
+                            <h5>🏢 会議用テンプレート</h5>
+                            <p>議題・参加者・決定事項・アクションアイテム・次回会議</p>
+                        </div>
+                        <div class="template-btn" data-template="sales" onclick="selectTemplate('sales')">
+                            <h5>💼 営業電話用テンプレート</h5>
+                            <p>顧客情報・ニーズ・課題・提案内容・次回アクション</p>
+                        </div>
+                        <div class="template-btn" data-template="support" onclick="selectTemplate('support')">
+                            <h5>🛠️ 問い合わせ対応用テンプレート</h5>
+                            <p>問題概要・対応内容・解決状況・フォローアップ</p>
+                        </div>
+                        <div class="template-btn" data-template="interview" onclick="selectTemplate('interview')">
+                            <h5>🎙️ インタビュー用テンプレート</h5>
+                            <p>質問項目・重要な回答・インサイト・追加確認事項</p>
+                        </div>
+                        <div class="template-btn" data-template="custom" onclick="selectTemplate('custom')">
+                            <h5>✏️ カスタムテンプレート</h5>
+                            <p>独自の要約形式を作成</p>
+                        </div>
+                    </div>
+
+                    <!-- カスタムテンプレート入力欄 -->
+                    <div id="customTemplateSection" class="custom-template-section hidden">
+                        <h5>📝 カスタムテンプレートを作成：</h5>
+                        <textarea 
+                            id="customTemplateText" 
+                            class="custom-template-input" 
+                            placeholder="独自の要約形式を入力してください（例：1. 目的、2. 結果、3. 今後の課題）">
+                        </textarea>
+                        <div style="margin-top: 10px;">
+                            <button class="btn btn-secondary btn-small" onclick="saveCustomTemplate()">💾 保存</button>
+                            <button class="btn btn-secondary btn-small" onclick="loadCustomTemplate()">📁 読み込み</button>
+                        </div>
+                    </div>
+                </div>
+
+                <p>新しいタブでClaude.aiが開きます。下記のプロンプトをコピーして貼り付けてください：</p>
+                <div class="claude-prompt" id="claudePrompt">
+                    文字起こしデータを選択してからこのタブを開いてください。
+                </div>
+                <div class="action-buttons">
+                    <button class="btn btn-primary" id="copyPromptBtn">📋 プロンプトをコピー</button>
+                    <button class="btn btn-primary" id="openClaudeBtn">🚀 プロンプトをコピーしてClaude.aiを開く</button>
+                </div>
+            </div>
+
+            <div class="summary-area">
+                <h3>📋 要約結果</h3>
+                <p style="margin-bottom: 10px; color: #64748b;">Claudeで生成された要約をここに貼り付けてください：</p>
+                <textarea 
+                    id="summaryText" 
+                    class="summary-text" 
+                    placeholder="Claudeから取得した要約をここに貼り付けてください...">
+                </textarea>
+                <div class="action-buttons">
+                    <button class="btn btn-success" id="saveSummaryBtn">💾 要約付きで保存</button>
+                    <button class="btn btn-secondary" id="exportSummaryBtn">📄 要約を出力</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let isRecording = false;
+        let recognition = null;
+        let recordingStartTime = null;
+        let recordingTimer = null;
+        let currentTranscription = '';
+        let currentTitle = '';
+        let selectedTemplate = 'general'; // デフォルトテンプレート
+
+        // 要約テンプレート定義
+        const summaryTemplates = {
+            general: {
+                name: '汎用テンプレート',
+                prompt: `以下の電話の文字起こし内容を要約してください。重要なポイント、アクションアイテム、次のステップを含めて整理してください。
+
+【電話の文字起こし内容】
+{transcription}
+
+【要約形式】
+1. 通話の概要
+2. 重要なポイント
+3. アクションアイテム
+4. 次のステップ`
+            },
+            meeting: {
+                name: '会議用テンプレート',
+                prompt: `以下の会議の文字起こし内容を会議用の形式で要約してください。
+
+【会議の文字起こし内容】
+{transcription}
+
+【会議要約形式】
+1. 会議の目的・議題
+2. 参加者
+3. 討議内容の要点
+4. 決定事項
+5. アクションアイテム（担当者・期限含む）
+6. 次回会議の予定
+7. その他の重要事項`
+            },
+            sales: {
+                name: '営業電話用テンプレート',
+                prompt: `以下の営業電話の文字起こし内容を営業活動用の形式で要約してください。
+
+【営業電話の文字起こし内容】
+{transcription}
+
+【営業電話要約形式】
+1. 顧客情報・背景
+2. 顧客のニーズ・課題
+3. 提案した商品・サービス
+4. 顧客の反応・関心度
+5. 提示した条件・価格
+6. 懸念点・課題
+7. 次回アクション・フォローアップ
+8. 案件の見込み度`
+            },
+            support: {
+                name: '問い合わせ対応用テンプレート',
+                prompt: `以下の顧客問い合わせ対応の文字起こし内容をサポート業務用の形式で要約してください。
+
+【問い合わせ対応の文字起こし内容】
+{transcription}
+
+【問い合わせ対応要約形式】
+1. 問い合わせ内容・問題の概要
+2. 顧客情報・環境
+3. 問題の原因
+4. 実施した対応・解決方法
+5. 解決状況（解決済み・進行中・未解決）
+6. 顧客の満足度
+7. フォローアップの必要性
+8. 今後の予防策・改善点`
+            },
+            interview: {
+                name: 'インタビュー用テンプレート',
+                prompt: `以下のインタビューの文字起こし内容をインタビュー記録用の形式で要約してください。
+
+【インタビューの文字起こし内容】
+{transcription}
+
+【インタビュー要約形式】
+1. インタビュー対象者・背景
+2. インタビューの目的
+3. 主要な質問項目と回答
+4. 重要なインサイト・発見
+5. 印象的なコメント・引用
+6. 今後の課題・検討事項
+7. 追加で確認が必要な事項
+8. 次回のアクション`
+            },
+            custom: {
+                name: 'カスタムテンプレート',
+                prompt: '' // カスタムテンプレートは動的に設定
+            }
+        };
+
+        // アプリ初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            initSpeechRecognition();
+            loadHistory();
+            setupEventListeners();
+            loadCustomTemplate(); // カスタムテンプレートを読み込み
+            
+            // ブラウザサポートチェック
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                showStatus('音声認識機能を使用するには、Chrome、Edge、Safariをご利用ください。', 'error');
+            }
+        });
+
+        // 音声認識初期化
+        function initSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window) {
+                recognition = new webkitSpeechRecognition();
+            } else if ('SpeechRecognition' in window) {
+                recognition = new SpeechRecognition();
+            } else {
+                return false;
+            }
+
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'ja-JP';
+
+            recognition.onresult = function(event) {
+                let finalTranscript = '';
+                let interimTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                currentTranscription += finalTranscript;
+                const transcriptionText = document.getElementById('transcriptionText');
+                transcriptionText.value = currentTranscription + interimTranscript;
+            };
+
+            recognition.onerror = function(event) {
+                console.error('音声認識エラー:', event.error, event);
+                showStatus('音声認識でエラーが発生しました: ' + event.error, 'error');
+            };
+
+            recognition.onend = function() {
+                if (isRecording) {
+                    setTimeout(() => {
+                        if (isRecording) {
+                            try {
+                                recognition.start();
+                            } catch (error) {
+                                console.log('音声認識再開エラー:', error);
+                                stopRecording();
+                                showStatus('音声認識が停止されました。再度録音ボタンを押してください。', 'error');
+                            }
+                        }
+                    }, 100);
+                }
+            };
+
+            return true;
+        }
+
+        // イベントリスナー設定
+        function setupEventListeners() {
+            // 録音ボタン
+            document.getElementById('recordButton').addEventListener('click', toggleRecording);
+            
+            // 保存・エクスポートボタン
+            document.getElementById('saveBtn').addEventListener('click', saveTranscription);
+            document.getElementById('exportBtn').addEventListener('click', exportTranscription);
+            document.getElementById('clearBtn').addEventListener('click', clearTranscription);
+            
+            // Claude連携
+            document.getElementById('sendToClaudeBtn').addEventListener('click', prepareClaudePrompt);
+            document.getElementById('copyPromptBtn').addEventListener('click', copyPrompt);
+            document.getElementById('openClaudeBtn').addEventListener('click', openClaude);
+            document.getElementById('saveSummaryBtn').addEventListener('click', saveSummary);
+            document.getElementById('exportSummaryBtn').addEventListener('click', exportSummary);
+            
+            // 履歴関連
+            document.getElementById('searchBox').addEventListener('input', filterHistory);
+            document.getElementById('clearHistoryBtn').addEventListener('click', clearAllHistory);
+        }
+
+        // タブ切り替え
+        function switchTab(tabName) {
+            // タブボタンの状態更新
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // タブコンテンツの表示切り替え
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // 履歴タブを開いた時は履歴を更新
+            if (tabName === 'history') {
+                loadHistory();
+            }
+        }
+
+        // 要約テンプレート選択
+        function selectTemplate(templateName) {
+            selectedTemplate = templateName;
+            
+            // UI更新
+            document.querySelectorAll('.template-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`[data-template="${templateName}"]`).classList.add('active');
+            
+            // カスタムテンプレート入力欄の表示制御
+            const customSection = document.getElementById('customTemplateSection');
+            if (templateName === 'custom') {
+                customSection.classList.remove('hidden');
+            } else {
+                customSection.classList.add('hidden');
+            }
+            
+            showStatus(`「${summaryTemplates[templateName].name}」を選択しました。`, 'success');
+        }
+
+        // カスタムテンプレート保存
+        function saveCustomTemplate() {
+            const customText = document.getElementById('customTemplateText').value.trim();
+            if (!customText) {
+                showStatus('カスタムテンプレートが入力されていません。', 'error');
+                return;
+            }
+            
+            localStorage.setItem('customSummaryTemplate', customText);
+            summaryTemplates.custom.prompt = customText;
+            showStatus('カスタムテンプレートを保存しました。', 'success');
+        }
+
+        // カスタムテンプレート読み込み
+        function loadCustomTemplate() {
+            const saved = localStorage.getItem('customSummaryTemplate');
+            if (saved) {
+                document.getElementById('customTemplateText').value = saved;
+                summaryTemplates.custom.prompt = saved;
+            }
+        }
+
+        // 録音開始・停止
+        function toggleRecording() {
+            if (!isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
+        function startRecording() {
+            if (!recognition) {
+                showStatus('音声認識が利用できません。', 'error');
+                return;
+            }
+
+            isRecording = true;
+            currentTranscription = '';
+            recordingStartTime = Date.now();
+            
+            // UI更新
+            const recordButton = document.getElementById('recordButton');
+            const recordingStatus = document.getElementById('recordingStatus');
+            
+            recordButton.innerHTML = '⏹️<br>録音停止';
+            recordButton.classList.add('recording');
+            recordingStatus.textContent = '録音中... 話してください';
+            
+            // 文字起こしエリアクリア
+            document.getElementById('transcriptionText').value = '';
+            
+            // タイマー開始
+            startRecordingTimer();
+            
+            // 音声認識開始
+            try {
+                recognition.start();
+                showStatus('録音を開始しました。話してください。', 'success');
+            } catch (error) {
+                console.error('音声認識開始エラー:', error);
+                resetRecordingState();
+                showStatus('音声認識の開始に失敗しました。ページを再読み込みしてお試しください。', 'error');
+            }
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            
+            // UI更新
+            const recordButton = document.getElementById('recordButton');
+            const recordingStatus = document.getElementById('recordingStatus');
+            
+            recordButton.innerHTML = '🎤<br>録音開始';
+            recordButton.classList.remove('recording');
+            recordingStatus.textContent = '録音完了';
+            
+            // タイマー停止
+            if (recordingTimer) {
+                clearInterval(recordingTimer);
+                recordingTimer = null;
+            }
+            
+            // 音声認識停止
+            if (recognition) {
+                try {
+                    recognition.stop();
+                } catch (error) {
+                    console.error('音声認識停止エラー:', error);
+                }
+            }
+            
+            const transcriptionText = document.getElementById('transcriptionText').value;
+            if (transcriptionText.trim()) {
+                currentTranscription = transcriptionText;
+                showStatus('録音を停止しました。文字起こしが完了しています。', 'success');
+            } else {
+                showStatus('録音を停止しました。音声が認識されませんでした。', 'info');
+            }
+        }
+
+        function resetRecordingState() {
+            isRecording = false;
+            const recordButton = document.getElementById('recordButton');
+            const recordingStatus = document.getElementById('recordingStatus');
+            
+            recordButton.innerHTML = '🎤<br>録音開始';
+            recordButton.classList.remove('recording');
+            recordingStatus.textContent = '録音準備完了';
+            
+            if (recordingTimer) {
+                clearInterval(recordingTimer);
+                recordingTimer = null;
+            }
+        }
+
+        // 録音時間表示
+        function startRecordingTimer() {
+            recordingTimer = setInterval(() => {
+                const elapsed = Date.now() - recordingStartTime;
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('recordingTime').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        // Claude連携準備（テンプレート対応）
+        function prepareClaudePrompt() {
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            if (!transcriptionText) {
+                showStatus('Claudeに送信する文字起こしがありません。', 'error');
+                return;
+            }
+            
+            let prompt = '';
+            
+            if (selectedTemplate === 'custom') {
+                const customTemplate = document.getElementById('customTemplateText').value.trim();
+                if (!customTemplate) {
+                    showStatus('カスタムテンプレートが入力されていません。', 'error');
+                    return;
+                }
+                prompt = `以下の電話の文字起こし内容を以下の形式で要約してください。
+
+【電話の文字起こし内容】
+${transcriptionText}
+
+【要約形式】
+${customTemplate}`;
+            } else {
+                prompt = summaryTemplates[selectedTemplate].prompt.replace('{transcription}', transcriptionText);
+            }
+            
+            document.getElementById('claudePrompt').textContent = prompt;
+            showStatus(`「${summaryTemplates[selectedTemplate].name}」でClaude連携の準備が完了しました。`, 'success');
+            
+            // Claude連携タブに自動切り替え
+            switchTab('claude');
+            document.querySelector('[onclick="switchTab(\'claude\')"]').classList.add('active');
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                if (tab.textContent.includes('Claude連携')) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+        }
+
+        // 文字起こし保存
+        function saveTranscription() {
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            if (!transcriptionText) {
+                showStatus('保存する文字起こしがありません。', 'error');
+                return;
+            }
+            
+            const title = prompt('タイトルを入力してください:', `電話記録_${new Date().toLocaleString('ja-JP').replace(/[/:]/g, '-')}`);
+            if (!title) return;
+            
+            const recordData = {
+                id: Date.now().toString(),
+                title: title,
+                transcription: transcriptionText,
+                summary: '',
+                template: selectedTemplate,
+                created_at: new Date().toLocaleString('ja-JP'),
+                duration: document.getElementById('recordingTime').textContent
+            };
+            
+            let history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            history.unshift(recordData);
+            localStorage.setItem('transcriptionHistory', JSON.stringify(history));
+            
+            showStatus('履歴に保存しました！', 'success');
+            currentTitle = title;
+        }
+
+        // プロンプトコピー
+        function copyPrompt() {
+            const prompt = document.getElementById('claudePrompt').textContent;
+            navigator.clipboard.writeText(prompt).then(() => {
+                showStatus('プロンプトをクリップボードにコピーしました。', 'success');
+            }).catch(() => {
+                showStatus('コピーに失敗しました。', 'error');
+            });
+        }
+
+        // Claude.ai開く
+        function openClaude() {
+            const prompt = document.getElementById('claudePrompt').textContent;
+            if (prompt.trim() && prompt !== '文字起こしデータを選択してからこのタブを開いてください。') {
+                navigator.clipboard.writeText(prompt).then(() => {
+                    showStatus('プロンプトをコピーしてClaude.aiを開きました。Claude.aiで貼り付け（Ctrl+V）してください。', 'success');
+                }).catch(() => {
+                    showStatus('プロンプトのコピーに失敗しました。手動でコピーしてください。', 'error');
+                });
+            } else {
+                showStatus('Claude.aiを開きました。先に文字起こしを行ってからプロンプトを生成してください。', 'info');
+            }
+            
+            window.open('https://claude.ai/', '_blank');
+        }
+
+        // 要約保存
+        function saveSummary() {
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            const summaryText = document.getElementById('summaryText').value.trim();
+            
+            if (!transcriptionText) {
+                showStatus('元の文字起こしがありません。', 'error');
+                return;
+            }
+            
+            if (!summaryText) {
+                showStatus('要約が入力されていません。', 'error');
+                return;
+            }
+            
+            const title = currentTitle || prompt('タイトルを入力してください:', `電話記録_${new Date().toLocaleString('ja-JP').replace(/[/:]/g, '-')}`);
+            if (!title) return;
+            
+            const recordData = {
+                id: Date.now().toString(),
+                title: title,
+                transcription: transcriptionText,
+                summary: summaryText,
+                template: selectedTemplate,
+                created_at: new Date().toLocaleString('ja-JP'),
+                duration: document.getElementById('recordingTime').textContent
+            };
+            
+            let history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            const existingIndex = history.findIndex(item => item.title === title);
+            
+            if (existingIndex !== -1) {
+                history[existingIndex] = recordData;
+            } else {
+                history.unshift(recordData);
+            }
+            
+            localStorage.setItem('transcriptionHistory', JSON.stringify(history));
+            showStatus('要約付きで履歴に保存しました！', 'success');
+            currentTitle = title;
+        }
+
+        // テキスト出力
+        function exportTranscription() {
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            if (!transcriptionText) {
+                showStatus('出力する文字起こしがありません。', 'error');
+                return;
+            }
+            
+            const title = currentTitle || 'transcription';
+            const timestamp = new Date().toLocaleString('ja-JP');
+            const duration = document.getElementById('recordingTime').textContent;
+            
+            const content = `=======================================
+電話内容文字起こし結果
+=======================================
+
+日時: ${timestamp}
+録音時間: ${duration}
+タイトル: ${title}
+使用テンプレート: ${summaryTemplates[selectedTemplate].name}
+
+【文字起こし内容】
+${transcriptionText}
+`;
+            
+            downloadTextFile(content, `${title}_${Date.now()}.txt`);
+            showStatus('テキストファイルをダウンロードしました。', 'success');
+        }
+
+        // 要約出力
+        function exportSummary() {
+            const summaryText = document.getElementById('summaryText').value.trim();
+            if (!summaryText) {
+                showStatus('出力する要約がありません。', 'error');
+                return;
+            }
+            
+            const transcriptionText = document.getElementById('transcriptionText').value.trim();
+            const title = currentTitle || 'summary';
+            const timestamp = new Date().toLocaleString('ja-JP');
+            const duration = document.getElementById('recordingTime').textContent;
+            
+            const content = `=======================================
+電話内容文字起こし・要約結果
+=======================================
+
+日時: ${timestamp}
+録音時間: ${duration}
+タイトル: ${title}
+使用テンプレート: ${summaryTemplates[selectedTemplate].name}
+
+【文字起こし内容】
+${transcriptionText}
+
+【要約】
+${summaryText}
+`;
+            
+            downloadTextFile(content, `${title}_要約_${Date.now()}.txt`);
+            showStatus('要約付きテキストファイルをダウンロードしました。', 'success');
+        }
+
+        // クリア
+        function clearTranscription() {
+            if (confirm('文字起こし内容をクリアしますか？')) {
+                document.getElementById('transcriptionText').value = '';
+                document.getElementById('recordingTime').textContent = '00:00';
+                currentTranscription = '';
+                currentTitle = '';
+                showStatus('クリアしました。', 'info');
+            }
+        }
+
+        // 履歴読み込み
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            const historyList = document.getElementById('historyList');
+            
+            if (history.length === 0) {
+                historyList.innerHTML = `
+                    <div style="text-align: center; color: #64748b; padding: 40px;">
+                        まだ履歴がありません。<br>
+                        録音・文字起こしを行って保存してください。
+                    </div>
+                `;
+                return;
+            }
+            
+            historyList.innerHTML = history.map(item => `
+                <div class="history-item" data-id="${item.id}">
+                    <div class="history-header">
+                        <div>
+                            <div class="history-title">${escapeHtml(item.title)}</div>
+                            <div class="history-meta">
+                                📅 ${item.created_at} | ⏱️ ${item.duration} | 📋 ${item.template ? summaryTemplates[item.template]?.name || item.template : '汎用テンプレート'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="history-preview">
+                        ${escapeHtml(item.transcription.substring(0, 150))}${item.transcription.length > 150 ? '...' : ''}
+                    </div>
+                    ${item.summary ? `
+                        <div class="history-preview" style="background: #f0fdf4; padding: 10px; border-radius: 6px; margin-top: 10px;">
+                            <strong>📋 要約:</strong> ${escapeHtml(item.summary.substring(0, 100))}${item.summary.length > 100 ? '...' : ''}
+                        </div>
+                    ` : ''}
+                    <div class="history-actions">
+                        <button class="btn btn-secondary btn-small" onclick="loadHistoryItem('${item.id}')">📖 開く</button>
+                        <button class="btn btn-secondary btn-small" onclick="exportHistoryItem('${item.id}')">📄 出力</button>
+                        <button class="btn btn-secondary btn-small" onclick="deleteHistoryItem('${item.id}')">🗑️ 削除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // 履歴項目を開く
+        function loadHistoryItem(id) {
+            const history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            const item = history.find(h => h.id === id);
+            
+            if (!item) {
+                showStatus('履歴項目が見つかりません。', 'error');
+                return;
+            }
+            
+            // メインタブに戻る
+            switchTab('main');
+            document.querySelector('[onclick="switchTab(\'main\')"]').classList.add('active');
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                if (tab.textContent.includes('録音')) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+            
+            // データを復元
+            document.getElementById('transcriptionText').value = item.transcription;
+            document.getElementById('summaryText').value = item.summary || '';
+            currentTitle = item.title;
+            currentTranscription = item.transcription;
+            
+            // テンプレートも復元
+            if (item.template) {
+                selectedTemplate = item.template;
+            }
+            
+            showStatus(`「${item.title}」を読み込みました。`, 'success');
+        }
+
+        // 履歴項目を出力
+        function exportHistoryItem(id) {
+            const history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            const item = history.find(h => h.id === id);
+            
+            if (!item) {
+                showStatus('履歴項目が見つかりません。', 'error');
+                return;
+            }
+            
+            const content = `=======================================
+電話内容文字起こし・要約結果
+=======================================
+
+日時: ${item.created_at}
+録音時間: ${item.duration}
+タイトル: ${item.title}
+使用テンプレート: ${item.template ? summaryTemplates[item.template]?.name || item.template : '汎用テンプレート'}
+
+【文字起こし内容】
+${item.transcription}
+
+${item.summary ? `【要約】
+${item.summary}` : ''}
+`;
+            
+            downloadTextFile(content, `${item.title}_${Date.now()}.txt`);
+            showStatus('テキストファイルをダウンロードしました。', 'success');
+        }
+
+        // 履歴項目を削除
+        function deleteHistoryItem(id) {
+            if (!confirm('この履歴項目を削除しますか？')) return;
+            
+            let history = JSON.parse(localStorage.getItem('transcriptionHistory') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('transcriptionHistory', JSON.stringify(history));
+            
+            loadHistory();
+            showStatus('履歴項目を削除しました。', 'success');
+        }
+
+        // 履歴検索
+        function filterHistory() {
+            const searchTerm = document.getElementById('searchBox').value.toLowerCase();
+            const historyItems = document.querySelectorAll('.history-item');
+            
+            historyItems.forEach(item => {
+                const title = item.querySelector('.history-title').textContent.toLowerCase();
+                const preview = item.querySelector('.history-preview').textContent.toLowerCase();
+                
+                if (title.includes(searchTerm) || preview.includes(searchTerm)) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+
+        // 全履歴削除
+        function clearAllHistory() {
+            if (!confirm('すべての履歴を削除しますか？この操作は取り消せません。')) return;
+            
+            localStorage.removeItem('transcriptionHistory');
+            loadHistory();
+            showStatus('すべての履歴を削除しました。', 'success');
+        }
+
+        // ユーティリティ関数
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+
+        function downloadTextFile(content, filename) {
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // グローバルな関数として公開（onclick属性で使用するため）
+        window.switchTab = switchTab;
+        window.selectTemplate = selectTemplate;
+        window.saveCustomTemplate = saveCustomTemplate;
+        window.loadCustomTemplate = loadCustomTemplate;
+        window.loadHistoryItem = loadHistoryItem;
+        window.exportHistoryItem = exportHistoryItem;
+        window.deleteHistoryItem = deleteHistoryItem;
+
+        // アプリケーション起動完了ログ
+        console.log('電話内容文字起こし・要約PWA が正常に起動しました');
+        console.log('要約テンプレート機能が有効です');
+        
+    </script>
+</body>
+</html>
