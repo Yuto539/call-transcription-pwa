@@ -3,14 +3,14 @@
   "name": "call-transcription-pwa",
   "builds": [
     {
-      "src": "index.html",
+      "src": "**",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/$1"
     }
   ],
   "headers": [
@@ -33,7 +33,7 @@
       ]
     },
     {
-      "source": "/(.*\\.(png|ico|svg))",
+      "source": "/(.*\\.(png|ico|svg|jpg|jpeg|gif|css|js))",
       "headers": [
         {
           "key": "Cache-Control",
@@ -41,10 +41,5 @@
         }
       ]
     }
-  ],
-  "functions": {
-    "index.html": {
-      "maxDuration": 10
-    }
-  }
+  ]
 }

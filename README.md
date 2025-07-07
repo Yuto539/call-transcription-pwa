@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 📞 電話内容文字起こし・要約PWA
 
 **リアルタイム音声認識とClaude AI連携による高機能な文字起こし・要約アプリ**
@@ -246,3 +247,7 @@ git push origin feature/awesome-feature
 [![Star this repo](https://img.shields.io/github/stars/yourusername/call-transcription-pwa?style=social)](https://github.com/yourusername/call-transcription-pwa)
 [![Fork this repo](https://img.shields.io/github/forks/yourusername/call-transcription-pwa?style=social)](https://github.com/yourusername/call-transcription-pwa/fork)
 [![Watch this repo](https://img.shields.io/github/watchers/yourusername/call-transcription-pwa?style=social)](https://github.com/yourusername/call-transcription-pwa/subscription)
+=======
+# call-transcription-pwa
+📞 電話内容文字起こし・要約PWA
+>>>>>>> c8660d017ba1889543016ced564c5ceaac97fd5c
